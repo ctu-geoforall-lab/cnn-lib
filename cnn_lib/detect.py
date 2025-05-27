@@ -8,12 +8,12 @@ import tensorflow as tf
 from osgeo import gdal
 
 # imports from this package
-import utils
+import cnn_lib.utils as utils
 
-from cnn_lib import AugmentGenerator
-from architectures import create_model
-from visualization import visualize_detections
-from cnn_exceptions import DatasetError
+from cnn_lib.cnn_lib import AugmentGenerator
+from cnn_lib.architectures import create_model
+from cnn_lib.visualization import visualize_detections
+from cnn_lib.cnn_exceptions import DatasetError
 
 
 def main(data_dir, model, in_weights_path, visualization_path, batch_size,

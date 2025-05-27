@@ -9,9 +9,9 @@ from tensorflow.keras.layers import MaxPooling2D, Conv2D, Input, \
     GlobalAveragePooling2D, GlobalMaxPooling2D, Dense
 from tensorflow.keras.models import Model
 
-from cnn_lib import ConvBlock, MyMaxPooling, MyMaxUnpooling, \
+from cnn_lib.cnn_lib import ConvBlock, MyMaxPooling, MyMaxUnpooling, \
     categorical_dice, categorical_tversky, ResBlock, IdentityBlock, ASPP
-from cnn_exceptions import ModelConfigError
+from cnn_lib.cnn_exceptions import ModelConfigError
 
 
 class _BaseModel(Model, ABC):

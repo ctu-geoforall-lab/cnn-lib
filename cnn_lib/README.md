@@ -70,7 +70,7 @@ below:
 
 ```
 usage: train.py [-h] [--operation {train,fine-tune}] --data_dir DATA_DIR
-                --output_dir OUTPUT_DIR [--model {U-Net,SegNet,DeepLab}]
+                --output_dir OUTPUT_DIR [--model {U-Net,SegNet,DeepLab,FCN}]
                 [--model_fn MODEL_FN] [--weights_path WEIGHTS_PATH]
                 [--visualization_path VISUALIZATION_PATH]
                 [--nr_epochs NR_EPOCHS] [--initial_epoch INITIAL_EPOCH]
@@ -87,7 +87,7 @@ usage: train.py [-h] [--operation {train,fine-tune}] --data_dir DATA_DIR
                 [--dropout_rate_hidden DROPOUT_RATE_HIDDEN]
                 [--validation_set_percentage VALIDATION_SET_PERCENTAGE]
                 [--filter_by_classes FILTER_BY_CLASSES]
-                [--backbone {ResNet50,ResNet101,ResNet152}]
+                [--backbone {ResNet50,ResNet101,ResNet152,VGG16}]
 
 Run training or fine-tuning
 
@@ -99,7 +99,7 @@ optional arguments:
   --data_dir DATA_DIR   Path to the directory containing images and labels
   --output_dir OUTPUT_DIR
                         Path where logs and the model will be saved
-  --model {U-Net,SegNet,DeepLab}
+  --model {U-Net,SegNet,DeepLab,FCN}
                         Model architecture
   --model_fn MODEL_FN   Output model filename
   --weights_path WEIGHTS_PATH
@@ -159,7 +159,7 @@ optional arguments:
                         them will be created. If filtering by multiple
                         classes, specify their values comma-separated (e.g.
                         "1,2,6" to filter by classes 1, 2 and 6)
-  --backbone {ResNet50,ResNet101,ResNet152}
+  --backbone {ResNet50,ResNet101,ResNet152,VGG16}
                         Backbone architecture
 ```
 
@@ -169,7 +169,7 @@ Once you have a trained model, you can run the detection using the script
 `detect.py`.
 
 ```
-usage: detect.py [-h] --data_dir DATA_DIR [--model {U-Net,SegNet,DeepLab}]
+usage: detect.py [-h] --data_dir DATA_DIR [--model {U-Net,SegNet,DeepLab,FCN}]
                  [--weights_path WEIGHTS_PATH]
                  [--visualization_path VISUALIZATION_PATH]
                  [--batch_size BATCH_SIZE] [--seed SEED]
@@ -178,14 +178,14 @@ usage: detect.py [-h] --data_dir DATA_DIR [--model {U-Net,SegNet,DeepLab}]
                  [--fit_dataset_in_memory FIT_DATASET_IN_MEMORY]
                  [--validation_set_percentage VALIDATION_SET_PERCENTAGE]
                  [--filter_by_classes FILTER_BY_CLASSES]
-                 [--backbone {ResNet50,ResNet101,ResNet152}]
+                 [--backbone {ResNet50,ResNet101,ResNet152,VGG16}]
 
 Run detection
 
 optional arguments:
   -h, --help            show this help message and exit
   --data_dir DATA_DIR   Path to the directory containing images and labels
-  --model {U-Net,SegNet,DeepLab}
+  --model {U-Net,SegNet,DeepLab,FCN}
                         Model architecture
   --weights_path WEIGHTS_PATH
                         Input weights path
@@ -217,7 +217,7 @@ optional arguments:
                         them will be created. If filtering by multiple
                         classes, specify their values comma-separated (e.g.
                         "1,2,6" to filter by classes 1, 2 and 6)
-  --backbone {ResNet50,ResNet101,ResNet152}
+  --backbone {ResNet50,ResNet101,ResNet152,VGG16}
                         Backbone architecture
   --ignore_masks        Boolean to decide if computing also average statstics
 			based on ground truth data or running only

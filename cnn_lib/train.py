@@ -12,9 +12,9 @@ from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, \
 # imports from this package
 import cnn_lib.utils as utils
 
-from cnn_lib.cnn_lib import AugmentGenerator
-# from cnn_lib.architectures import create_model
-# from cnn_lib.visualization import write_stats
+from cnn_lib.lib import AugmentGenerator
+from cnn_lib.architectures import create_model
+from cnn_lib.visualization import write_stats
 
 
 def main(operation, data_dir, output_dir, model, model_fn, in_weights_path=None,

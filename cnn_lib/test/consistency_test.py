@@ -20,7 +20,7 @@ def report_file(identifier):
                       'the stored results. The diff is as follows:\n\n')
 
     with open(f'/tmp/{identifier}.txt') as left:
-        with open(f'src/test/consistency_outputs/{identifier}.txt') as right:
+        with open(f'test/consistency_outputs/{identifier}.txt') as right:
             sys.stdout.writelines(unified_diff(left.readlines(), right.readlines()))
 
     return f'Inconsistency in outputs of setting {identifier}'
@@ -65,7 +65,7 @@ class TestCmd:
                 with open(f'/tmp/{identifier}.txt', 'w') as out:
                     out.write(cap.out)
 
-                assert filecmp.cmp(f'/tmp/{identifier}.txt', f'src/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
+                assert filecmp.cmp(f'/tmp/{identifier}.txt', f'test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
         # tests for architectures with backbone models
         architecture = 'DeepLab'
@@ -95,7 +95,7 @@ class TestCmd:
                 with open(f'/tmp/{identifier}.txt', 'w') as out:
                     out.write(cap.out)
 
-                assert filecmp.cmp(f'/tmp/{identifier}.txt', f'src/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
+                assert filecmp.cmp(f'/tmp/{identifier}.txt', f'test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
         architecture = 'FCN'
         for backbone in ('VGG16', ):
@@ -124,7 +124,7 @@ class TestCmd:
                 with open(f'/tmp/{identifier}.txt', 'w') as out:
                     out.write(cap.out)
 
-                assert filecmp.cmp(f'/tmp/{identifier}.txt', f'src/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
+                assert filecmp.cmp(f'/tmp/{identifier}.txt', f'test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
     def test_002_loss(self, capsys):
         """Test the consistency of a small cloud classification sample.
@@ -162,7 +162,7 @@ class TestCmd:
             with open(f'/tmp/{identifier}.txt', 'w') as out:
                 out.write(cap.out)
 
-            assert filecmp.cmp(f'/tmp/{identifier}.txt', f'src/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
+            assert filecmp.cmp(f'/tmp/{identifier}.txt', f'test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
         # test tversky
         for alpha, beta in ((0.3, 0.7), (0.7, 0.3)):
@@ -191,7 +191,7 @@ class TestCmd:
             with open(f'/tmp/{identifier}.txt', 'w') as out:
                 out.write(cap.out)
 
-            assert filecmp.cmp(f'/tmp/{identifier}.txt', f'src/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
+            assert filecmp.cmp(f'/tmp/{identifier}.txt', f'test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
     def test_003_augmentation(self, capsys):
         """Test the consistency of a small cloud classification sample.
@@ -229,4 +229,4 @@ class TestCmd:
         with open(f'/tmp/{identifier}.txt', 'w') as out:
             out.write(cap.out)
 
-        assert filecmp.cmp(f'/tmp/{identifier}.txt', f'src/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
+        assert filecmp.cmp(f'/tmp/{identifier}.txt', f'test/consistency_outputs/{identifier}.txt'), report_file(identifier)

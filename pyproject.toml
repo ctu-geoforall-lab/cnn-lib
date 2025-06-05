@@ -34,10 +34,7 @@ dynamic = ["version"]
 
 [tool.setuptools.packages.find]
 where = [""]
-exclude = ["docker*", "cnn_lib/test*", "cnn_lib/flop.py", "cnn_lib/random_forest.py"]
-
-[tool.setuptools.package-data]
-"*" = [".config.ini", "txtlogo.txt"]
+exclude = ["bin*", "docker*", "cnn_lib/test*", "cnn_lib/flop.py", "cnn_lib/random_forest.py"]
 
 [tool.setuptools.dynamic]
 version = {attr = "cnn_lib.__version__"}

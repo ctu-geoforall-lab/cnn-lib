@@ -12,8 +12,8 @@ from tensorflow.keras.layers import Layer, Conv2D, BatchNormalization, \
     Activation, Dropout, Add, AveragePooling2D, UpSampling2D, Concatenate
 from tensorflow.keras import backend as keras
 
-from data_preparation import generate_dataset_structure
-from cnn_exceptions import LayerDefinitionError
+from cnn_lib.data_preparation import generate_dataset_structure
+from cnn_lib.cnn_exceptions import LayerDefinitionError
 
 
 class AugmentGenerator:

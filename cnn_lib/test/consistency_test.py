@@ -5,7 +5,7 @@ import filecmp
 
 from difflib import unified_diff
 
-from train import main as train
+from train import run as train
 
 
 def report_file(identifier):

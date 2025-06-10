@@ -4,9 +4,8 @@ import os
 import glob
 import argparse
 
-import tensorflow as tf
-
 from osgeo import gdal
+import tensorflow as tf
 
 
 def get_codings(description_file):
@@ -92,6 +91,7 @@ def model_replace_nans(weights):
     :return: weights with NaN values replaced by zeros
     """
     import numpy as np
+
 
     valid_weights = []
     for weights_layer in weights:

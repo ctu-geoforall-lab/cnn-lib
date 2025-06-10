@@ -5,7 +5,13 @@ import sys
 import argparse
 
 # imports from this package
-import cnn_lib.utils as utils
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+if not '--help' in sys.argv and not '-h' in sys.argv:
+    # in order to skip the slow import of tensorflow if not needed
+    import cnn_lib.utils as utils
+    bool_ = utils.str2bool
+else:
+    bool_ = bool
 
 
 if __name__ == '__main__':
@@ -73,16 +79,16 @@ if __name__ == '__main__':
         '--monitored_value', type=str, default='val_accuracy',
         help='Metric name to be monitored')
     parser.add_argument(
-        '--force_dataset_generation', type=utils.str2bool, default=False,
+        '--force_dataset_generation', type=bool_, default=False,
         help='Boolean to force the dataset structure generation')
     parser.add_argument(
-        '--fit_dataset_in_memory', type=utils.str2bool, default=False,
+        '--fit_dataset_in_memory', type=bool_, default=False,
         help='Boolean to load the entire dataset into memory instead '
              'of opening new files with each request - results in the '
              'reduction of I/O operations and time, but could result in huge '
              'memory needs in case of a big dataset')
     parser.add_argument(
-        '--augment_training_dataset', type=utils.str2bool, default=False,
+        '--augment_training_dataset', type=bool_, default=False,
         help='Boolean to augment the training dataset with rotations, '
              'shear and flips')
     parser.add_argument(
@@ -134,9 +140,7 @@ if __name__ == '__main__':
             'Argument validation_set_percentage must be greater or equal to '
             '0 and smaller or equal than 1')
 
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
-    from smoderp2d.train import run
+    from cnn_lib.train import run
 
     run(args.operation, args.data_dir, args.output_dir,
         args.model, args.model_fn, args.weights_path, args.visualization_path,

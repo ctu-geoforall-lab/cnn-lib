@@ -1,6 +1,11 @@
 #!/usr/bin/python3
 
+import os
 import sys
+import argparse
+
+# imports from this package
+import cnn_lib.utils as utils
 
 
 if __name__ == '__main__':

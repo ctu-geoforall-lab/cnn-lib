@@ -10,11 +10,11 @@ from tensorflow.python.keras.callbacks import TensorBoard, ModelCheckpoint, \
     EarlyStopping
 
 # imports from this package
-import utils
+import cnn_lib.utils as utils
 
-from cnn_lib import AugmentGenerator
-from architectures import create_model
-from visualization import write_stats
+from cnn_lib.lib import AugmentGenerator
+from cnn_lib.architectures import create_model
+from cnn_lib.visualization import write_stats
 
 
 def main(data_dir, model, in_weights_path=None, tensor_shape=(256, 256), backbone=None):

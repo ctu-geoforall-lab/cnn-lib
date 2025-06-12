@@ -8,7 +8,7 @@ import numpy as np
 
 from osgeo import gdal
 
-from cnn_exceptions import DatasetError
+from cnn_lib.cnn_exceptions import DatasetError
 
 
 def generate_dataset_structure(data_dir, tensor_shape=(256, 256),

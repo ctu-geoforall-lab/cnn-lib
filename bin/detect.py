@@ -83,7 +83,7 @@ if __name__ == '__main__':
             'Argument validation_set_percentage must be greater or equal to 0 '
             'and smaller than 1')
 
-    from smoderp2d.detect import run
+    from cnn_lib.detect import run
 
     run(args.data_dir, args.model, args.weights_path, args.visualization_path,
         args.batch_size, args.seed, (args.tensor_height, args.tensor_width),

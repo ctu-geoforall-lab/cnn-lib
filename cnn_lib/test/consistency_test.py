@@ -20,7 +20,7 @@ def report_file(identifier):
                       'the stored results. The diff is as follows:\n\n')
 
     with open(f'/tmp/{identifier}.txt') as left:
-        with open(f'test/consistency_outputs/{identifier}.txt') as right:
+        with open(f'cnn_lib/test/consistency_outputs/{identifier}.txt') as right:
             sys.stdout.writelines(unified_diff(left.readlines(), right.readlines()))
 
     return f'Inconsistency in outputs of setting {identifier}'

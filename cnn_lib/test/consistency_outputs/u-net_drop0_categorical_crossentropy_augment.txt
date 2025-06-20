@@ -84,6 +84,6 @@ Trainable params: 31,048,835
 Non-trainable params: 11,776
 __________________________________________________________________________________________________
 
-Epoch 00001: val_loss improved from inf to 4.85937, saving model to /tmp/output_u-net_drop0_categorical_crossentropy_augment/model.h5
+Epoch 1: val_loss improved from inf to 4.85937, saving model to /tmp/output_u-net_drop0_categorical_crossentropy_augment/model.h5
 
-Epoch 00002: val_loss did not improve from 4.85937
+Epoch 2: val_loss did not improve from 4.85937

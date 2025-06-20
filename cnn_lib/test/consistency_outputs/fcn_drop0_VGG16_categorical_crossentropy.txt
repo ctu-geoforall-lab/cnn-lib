@@ -45,6 +45,6 @@ Trainable params: 199,059,367
 Non-trainable params: 27,904
 __________________________________________________________________________________________________
 
-Epoch 00001: val_loss improved from inf to 1.11983, saving model to /tmp/output_fcn_drop0_VGG16_categorical_crossentropy/model.h5
+Epoch 1: val_loss improved from inf to 1.11983, saving model to /tmp/output_fcn_drop0_VGG16_categorical_crossentropy/model.h5
 
-Epoch 00002: val_loss improved from 1.11983 to 0.76787, saving model to /tmp/output_fcn_drop0_VGG16_categorical_crossentropy/model.h5
+Epoch 2: val_loss improved from 1.11983 to 0.76787, saving model to /tmp/output_fcn_drop0_VGG16_categorical_crossentropy/model.h5

@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 
 import os
+import math
 
-import numpy as np
 import tensorflow as tf
 
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint, \
@@ -125,8 +125,8 @@ def train(model, train_generator, val_generator, id2code, batch_size,
 
     # steps per epoch not needed to be specified if the data are augmented, but
     # not when they are not (our own generator is used)
-    steps_per_epoch = np.ceil(train_generator.nr_samples / batch_size)
-    validation_steps = np.ceil(val_generator.nr_samples / batch_size)
+    steps_per_epoch = math.ceil(train_generator.nr_samples / batch_size)
+    validation_steps = math.ceil(val_generator.nr_samples / batch_size)
 
     # train
     result = model.fit(

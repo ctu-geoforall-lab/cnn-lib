@@ -34,6 +34,6 @@ Trainable params: 52,511,187
 Non-trainable params: 133,088
 __________________________________________________________________________________________________
 
-Epoch 1: val_loss improved from inf to 0.76904, saving model to /tmp/output_deeplab_drop0.5_ResNet152_categorical_crossentropy/model.h5
+Epoch 1: val_loss improved from inf to 0.76904, saving model to /tmp/output_deeplab_drop0.5_ResNet152_categorical_crossentropy/model.weights.h5
 
-Epoch 2: val_loss improved from 0.76904 to 0.32197, saving model to /tmp/output_deeplab_drop0.5_ResNet152_categorical_crossentropy/model.h5
+Epoch 2: val_loss improved from 0.76904 to 0.32197, saving model to /tmp/output_deeplab_drop0.5_ResNet152_categorical_crossentropy/model.weights.h5

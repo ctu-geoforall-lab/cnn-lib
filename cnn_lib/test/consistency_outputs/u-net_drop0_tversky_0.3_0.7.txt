@@ -87,6 +87,6 @@ Model: "u-net_drop0_tversky_0.3_0.7"
  Trainable params: 31,048,835 (118.44 MB)
  Non-trainable params: 11,776 (46.00 KB)
 
-Epoch 1: val_loss improved from inf to 0.83239, saving model to /tmp/output_u-net_drop0_tversky_0.3_0.7/model.weights.h5
+Epoch 1: val_loss improved from inf to 0.83649, saving model to /tmp/output_u-net_drop0_tversky_0.3_0.7/model.weights.h5
 
-Epoch 2: val_loss did not improve from 0.83239
+Epoch 2: val_loss improved from 0.83649 to 0.73259, saving model to /tmp/output_u-net_drop0_tversky_0.3_0.7/model.weights.h5

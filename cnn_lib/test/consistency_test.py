@@ -20,7 +20,7 @@ def report_file(identifier):
                       'the stored results. The diff is as follows:\n\n')
 
     with open(f'/tmp/{identifier}.txt') as left:
-        with open(f'test/consistency_outputs/{identifier}.txt') as right:
+        with open(f'cnn_lib/test/consistency_outputs/{identifier}.txt') as right:
             sys.stdout.writelines(unified_diff(left.readlines(), right.readlines()))
 
     return f'Inconsistency in outputs of setting {identifier}'
@@ -47,7 +47,7 @@ class TestCmd:
                           model=architecture,
                           data_dir=training_data_dir,
                           output_dir=f'/tmp/output_{identifier}',
-                          model_fn=f'/tmp/output_{identifier}/model.h5',
+                          model_fn=f'/tmp/output_{identifier}/model.weights.h5',
                           visualization_path=f'/tmp/output_{identifier}',
                           nr_epochs=2,
                           dropout_rate_hidden=dropout,
@@ -76,7 +76,7 @@ class TestCmd:
                           model=architecture,
                           data_dir=training_data_dir,
                           output_dir=f'/tmp/output_{identifier}',
-                          model_fn=f'/tmp/output_{identifier}/model.h5',
+                          model_fn=f'/tmp/output_{identifier}/model.weights.h5',
                           visualization_path=f'/tmp/output_{identifier}',
                           nr_epochs=2,
                           dropout_rate_hidden=dropout,
@@ -105,7 +105,7 @@ class TestCmd:
                           model=architecture,
                           data_dir=training_data_dir,
                           output_dir=f'/tmp/output_{identifier}',
-                          model_fn=f'/tmp/output_{identifier}/model.h5',
+                          model_fn=f'/tmp/output_{identifier}/model.weights.h5',
                           visualization_path=f'/tmp/output_{identifier}',
                           nr_epochs=2,
                           dropout_rate_hidden=dropout,
@@ -144,7 +144,7 @@ class TestCmd:
                       model='U-Net',
                       data_dir=training_data_dir,
                       output_dir=f'/tmp/output_{identifier}',
-                      model_fn=f'/tmp/output_{identifier}/model.h5',
+                      model_fn=f'/tmp/output_{identifier}/model.weights.h5',
                       visualization_path=f'/tmp/output_{identifier}',
                       nr_epochs=2,
                       dropout_rate_hidden=0,
@@ -171,7 +171,7 @@ class TestCmd:
                       model='U-Net',
                       data_dir=training_data_dir,
                       output_dir=f'/tmp/output_{identifier}',
-                      model_fn=f'/tmp/output_{identifier}/model.h5',
+                      model_fn=f'/tmp/output_{identifier}/model.weights.h5',
                       visualization_path=f'/tmp/output_{identifier}',
                       nr_epochs=2,
                       dropout_rate_hidden=0,
@@ -209,7 +209,7 @@ class TestCmd:
                   model='U-Net',
                   data_dir=training_data_dir,
                   output_dir=f'/tmp/output_{identifier}',
-                  model_fn=f'/tmp/output_{identifier}/model.h5',
+                  model_fn=f'/tmp/output_{identifier}/model.weights.h5',
                   visualization_path=f'/tmp/output_{identifier}',
                   nr_epochs=2,
                   dropout_rate_hidden=0,

@@ -192,6 +192,7 @@ usage: detect.py [-h] --data_dir DATA_DIR [--model {U-Net,SegNet,DeepLab,FCN}]
                  [--validation_set_percentage VALIDATION_SET_PERCENTAGE]
                  [--filter_by_classes FILTER_BY_CLASSES]
                  [--backbone {ResNet50,ResNet101,ResNet152,VGG16}]
+                 [--ignore_masks IGNORE_MASKS]
 
 Run detection
 

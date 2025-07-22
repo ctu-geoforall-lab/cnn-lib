@@ -233,7 +233,8 @@ optional arguments:
                         "1,2,6" to filter by classes 1, 2 and 6)
   --backbone {ResNet50,ResNet101,ResNet152,VGG16}
                         Backbone architecture
-  --ignore_masks        Boolean to decide if computing also average statstics
+  --ignore_masks IGNORE_MASKS
+                        Boolean to decide if computing also average statistics
                         based on ground truth data or running only
                         the prediction
 ```

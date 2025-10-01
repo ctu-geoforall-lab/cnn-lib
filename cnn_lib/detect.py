@@ -50,7 +50,7 @@ def run(data_dir, model, in_weights_path, visualization_path, batch_size,
         ignore_masks=ignore_masks)
 
     # load weights if the model is supposed to do so
-    model.load_weights(in_weights_path)
+    model.load_weights(in_weights_path, skip_masmatch=True)
     model.set_weights(utils.model_replace_nans(model.get_weights()))
 
     detect(model, val_generator, id2code, [i for i in label_codes],

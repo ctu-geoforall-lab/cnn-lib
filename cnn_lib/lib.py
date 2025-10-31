@@ -894,9 +894,71 @@ class MyMaxPooling(Layer):
         ksize = (1, self.pool_size[0], self.pool_size[1], 1)
         # TODO: Why don't I use the following strides?
         strides = (1, self.strides[0], self.strides[1], 1)
-        output, argmax = tf.nn.max_pool_with_argmax(
-            inputs, ksize=ksize, strides=self.strides,
-            padding=self.padding.upper(), include_batch_in_index=True)
+
+        # output, argmax = tf.nn.max_pool_with_argmax(
+        #    inputs, ksize=ksize, strides=strides,
+        #    # inputs, ksize=ksize, strides=self.strides,
+        #    padding=self.padding.upper(), include_batch_in_index=True)
+        output = tf.nn.max_pool2d(inputs, ksize=ksize, strides=strides,
+                                  padding=self.padding.upper())
+        argmax = []
+        def condition_k(k, argmax, inputs_shape, strides):
+            return k < inputs_shape[3] // strides[3]
+
+        def condition_j(j, argmax, inputs_shape, strides):
+            return j < inputs_shape[2] // strides[2]
+
+        def body_k(k, argmax, inputs_window_flat, columns_shift, lines_shift,
+                   strides, inputs_shape, i, j):
+            m = tf.argmax(inputs_window_flat[:, k], output_type=tf.int32)
+            m = (m % strides[2] + columns_shift + m // strides[2] *
+                 inputs_shape[2] + lines_shift) * inputs_shape[3] + k
+            argmax = argmax.write(k, m)
+            return k + 1, argmax
+
+        def body_j(j, argmax, inputs, channels, strides, i):
+            inputs_window = inputs[0, strides[1] * i:strides[1] * (i + 1),
+                            strides[2] * j:strides[2] * (j + 1), :]
+            inputs_window_flat = tf.reshape(inputs_window, [-1, channels])
+
+            columns_shift = j * strides[2]
+            lines_shift = i * strides[1] * inputs.shape[2]
+            k_init = tf.constant(0, dtype=tf.int32)
+            argmax_init = tf.TensorArray(dtype=tf.int32,
+                                         size=channels // strides[3])
+
+            _, argmax_result = tf.while_loop(
+                # condition,
+                # body,
+                # (k_init, argmax_init, inputs_window_flat, columns_shift, lines_shift, strides, inputs_shape, i, j)
+                lambda k, argmax: condition_k(k, argmax, inputs.shape, strides),
+                lambda k, argmax: body_k(k, argmax, inputs_window_flat,
+                                         columns_shift, lines_shift, strides,
+                                         inputs.shape, i, j),
+                (k_init, argmax_init)
+            )
+
+            # argmax_list = argmax_result.stack().numpy().tolist()
+            argmax_list = argmax_result.stack()
+            # argmax.append(argmax_list)
+            argmax = argmax.write(j, argmax_list)
+
+            return j + 1, argmax
+
+        batch_size, input_height, input_width, channels = inputs.shape
+        argmax = []
+        argmax_size = inputs.shape[2] // strides[2]
+        for i in range(inputs.shape[1] // strides[1]):
+            argmax_init = tf.TensorArray(dtype=tf.int32, size=argmax_size)
+            j_init = tf.constant(0, dtype=tf.int32)
+            _, argmax_result = tf.while_loop(
+                lambda j, argmax: condition_j(j, argmax, inputs.shape, strides),
+                lambda j, argmax: body_j(j, argmax, inputs, channels, strides,
+                                         i),
+                (j_init, argmax_init)
+            )
+
+            argmax.append(argmax_result.concat())
 
         argmax = tf.cast(argmax, tf.int32, name='cast_maxpooling')
 

@@ -899,17 +899,13 @@ class MyMaxPooling(Layer):
         #    inputs, ksize=ksize, strides=strides,
         #    # inputs, ksize=ksize, strides=self.strides,
         #    padding=self.padding.upper(), include_batch_in_index=True)
-        output = tf.nn.max_pool2d(inputs, ksize=ksize, strides=strides,
+
+        # compute pooled tensors
+        pooled = tf.nn.max_pool2d(inputs, ksize=ksize, strides=strides,
                                   padding=self.padding.upper())
-        argmax = []
-        def condition_k(k, argmax, inputs_shape, strides):
-            return k < inputs_shape[3] // strides[3]
 
-        def condition_j(j, argmax, inputs_shape, strides):
-            return j < inputs_shape[2] // strides[2]
-
-        def condition_i(i, argmax, inputs_shape, strides):
-            return i < inputs_shape[1] // strides[1]
+        def condition(i, dimension_size, stride):
+            return i < dimension_size // stride
 
         def body_k(k, argmax, inputs_window_flat, columns_shift, lines_shift,
                    strides, inputs_shape, i, j):
@@ -931,10 +927,7 @@ class MyMaxPooling(Layer):
                                          size=channels // strides[3])
 
             _, argmax_result = tf.while_loop(
-                # condition,
-                # body,
-                # (k_init, argmax_init, inputs_window_flat, columns_shift, lines_shift, strides, inputs_shape, i, j)
-                lambda k, argmax: condition_k(k, argmax, inputs.shape, strides),
+                lambda k, argmax: condition(k, inputs.shape[3], strides[3]),
                 lambda k, argmax: body_k(k, argmax, inputs_window_flat,
                                          columns_shift, lines_shift, strides,
                                          inputs.shape, i, j),
@@ -948,14 +941,13 @@ class MyMaxPooling(Layer):
 
             return j + 1, argmax
 
-        def body_i2(i, argmax_accum, inputs, channels, strides):
+        def body_i(i, argmax_accum, inputs, channels, strides):
             argmax_size = inputs.shape[2] // strides[2]
             argmax_init = tf.TensorArray(dtype=tf.int32, size=argmax_size)
             j_init = tf.constant(0, dtype=tf.int32)
 
             _, argmax_result = tf.while_loop(
-                lambda j, argmax: condition_j(j, argmax_size, inputs.shape,
-                                              strides),
+                lambda j, argmax: condition(j, inputs.shape[2], strides[2]),
                 lambda j, argmax: body_j(j, argmax, inputs, channels, strides,
                                          i),
                 (j_init, argmax_init)
@@ -963,8 +955,6 @@ class MyMaxPooling(Layer):
 
             argmax_stack = argmax_result.stack()
 
-            # indices = tf.reshape(i, [1, 1])  # Create a 1D tensor containing the index i
-            # updates = tf.reshape(argmax_stack, [1, -1, -1])  # Reshape argmax_stack to match the shape of the slice to update
             updates = tf.reshape(argmax_stack, [1, *argmax_stack.shape])
             indices = tf.reshape(i, [1, 1])
             argmax_accum = tf.tensor_scatter_nd_update(argmax_accum, indices,
@@ -982,10 +972,8 @@ class MyMaxPooling(Layer):
         i_init = tf.constant(0, dtype=tf.int32)
 
         _, argmax_accum_result = tf.while_loop(
-            lambda i, argmax_accum: condition_i(
-                i, argmax_accum, inputs.shape, strides
-            ),
-            lambda i, argmax_accum: body_i2(
+            lambda i, argmax_accum: condition(i, inputs.shape[1], strides[1]),
+            lambda i, argmax_accum: body_i(
                 i, argmax_accum, inputs, channels, strides
             ),
             (i_init, argmax_accum_init)
@@ -993,7 +981,7 @@ class MyMaxPooling(Layer):
 
         argmax = tf.cast(argmax, tf.int32, name='cast_maxpooling')
 
-        return output, argmax
+        return pooled, argmax
 
     @staticmethod
     def compute_output_shape(input_shape, **kwargs):

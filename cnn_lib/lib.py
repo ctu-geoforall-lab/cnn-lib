@@ -963,8 +963,6 @@ class MyMaxPooling(Layer):
             return i + 1, argmax_accum
 
         batch_size, input_height, input_width, channels = inputs.shape
-        argmax = []
-        argmax_size = inputs.shape[2] // strides[2]
         argmax_accum_init = tf.zeros(dtype=tf.int32,
                                      shape=[inputs.shape[1] // 2,
                                             inputs.shape[2] // 2,
@@ -979,7 +977,7 @@ class MyMaxPooling(Layer):
             (i_init, argmax_accum_init)
         )
 
-        argmax = tf.cast(argmax, tf.int32, name='cast_maxpooling')
+        argmax = tf.cast(argmax_accum_result, tf.int32, name='cast_maxpooling')
 
         return pooled, argmax
 

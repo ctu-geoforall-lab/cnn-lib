@@ -934,9 +934,7 @@ class MyMaxPooling(Layer):
                 (k_init, argmax_init)
             )
 
-            # argmax_list = argmax_result.stack().numpy().tolist()
             argmax_list = argmax_result.stack()
-            # argmax.append(argmax_list)
             argmax = argmax.write(j, argmax_list)
 
             return j + 1, argmax
@@ -977,7 +975,12 @@ class MyMaxPooling(Layer):
             (i_init, argmax_accum_init)
         )
 
-        argmax = tf.cast(argmax_accum_result, tf.int32, name='cast_maxpooling')
+        argmax = tf.expand_dims(
+            tf.cast(
+                argmax_accum_result, tf.int32, name='cast_maxpooling'
+            ),
+            0
+        )
 
         return pooled, argmax
 

@@ -911,10 +911,6 @@ class MyMaxPooling(Layer):
 
     def max_pool_with_argmax_gpu(self, inputs, ksize, strides, padding,
                                  include_batch_in_index):
-        # compute pooled tensors
-        pooled = tf.nn.max_pool2d(inputs, ksize=ksize, strides=strides,
-                                  padding=self.padding.upper())
-
         def dim_condition(i, dimension_size, stride):
             return i < dimension_size // stride
 
@@ -951,7 +947,7 @@ class MyMaxPooling(Layer):
 
             return j + 1, argmax
 
-        def run_cols(i, argmax_accum, inputs, channels, strides):
+        def run_cols(i, argmax_accum, inputs, strides):
             argmax_size = inputs.shape[2] // strides[2]
             argmax_init = tf.TensorArray(dtype=tf.int32, size=argmax_size)
             j_init = tf.constant(0, dtype=tf.int32)
@@ -959,7 +955,7 @@ class MyMaxPooling(Layer):
             _, argmax_result = tf.while_loop(
                 lambda j, argmax: dim_condition(j, inputs.shape[2], strides[2]),
                 lambda j, argmax: run_rows(
-                    j, argmax, inputs, channels, strides, i
+                    j, argmax, inputs, inputs.shape[3], strides, i
                 ),
                 (j_init, argmax_init)
             )
@@ -973,7 +969,10 @@ class MyMaxPooling(Layer):
 
             return i + 1, argmax_accum
 
-        batch_size, input_height, input_width, channels = inputs.shape
+        # compute pooled tensors
+        pooled = tf.nn.max_pool2d(inputs, ksize=ksize, strides=strides,
+                                  padding=self.padding.upper())
+
         argmax_accum_init = tf.zeros(dtype=tf.int32,
                                      shape=[inputs.shape[1] // 2,
                                             inputs.shape[2] // 2,
@@ -985,11 +984,13 @@ class MyMaxPooling(Layer):
             lambda i, argmax_accum: dim_condition(
                 i, inputs.shape[1], strides[1]),
             lambda i, argmax_accum: run_cols(
-                i, argmax_accum, inputs, channels, strides
+                i, argmax_accum, inputs, strides
             ),
             (i_init, argmax_accum_init)
         )
 
+        # TODO: I believe this both expand_dims and the casting is
+        #       unnecessary here - have to test
         argmax = tf.expand_dims(
             tf.cast(
                 argmax_accum_result, tf.int32, name='cast_maxpooling'

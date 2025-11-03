@@ -238,3 +238,20 @@ optional arguments:
                         based on ground truth data or running only
                         the prediction
 ```
+
+## Warnings, Fun-Facts, Hungry Freaks, and Letyouknows
+
+1. Training SegNet on CPUs and GPUs produce different models. Unfortunately,
+   the function that is used on CPUs to make everything faster --
+   `tf.nn.max_pool_with_argmax` -- does not work for backpropagation on GPUs.
+   This means two things:
+   1. It is actually usually faster to run SegNet training on CPUs than on
+      GPUs unless you have only a very little number of CPUs
+   2. The manual implementation of the function's alternative has a
+      different gradient than the official TensorFlow function. Therefore,
+      the updates are different and seeded trainings produce different
+      models for CPU and GPU. However, models produced on CPUs are
+      consistent with other CPU-based models, and the same applies to GPUs.
+   3. Detection can be run on GPU even with a model that was trained on CPUs
+      -- there is no backpropagation during the detection and there are no
+      trainable parameters in the layer. Then it usually runs faster on GPUs.

@@ -903,9 +903,9 @@ class MyMaxPooling(Layer):
 
     def instantiate_layers(self):
         if len(tf.config.list_physical_devices('GPU')) == 0:
-            max_pool_with_argmax = self.max_pool_with_argmax
+            max_pool_with_argmax = tf.nn.max_pool_with_argmax
         else:
-            max_pool_with_argmax = tf.nn.max_pool_with_argmax_gpu
+            max_pool_with_argmax = self.max_pool_with_argmax_gpu
 
         return max_pool_with_argmax
 

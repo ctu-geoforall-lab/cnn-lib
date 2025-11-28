@@ -2,6 +2,7 @@ import os
 import sys
 import pytest
 import filecmp
+import pathlib
 
 from difflib import unified_diff
 
@@ -43,12 +44,14 @@ class TestCmd:
         for architecture in ('U-Net', 'SegNet'):
             for dropout in (0, 0.5):
                 identifier = f'{architecture.lower()}_drop{dropout}_categorical_crossentropy'
+                output_dir = f'/tmp/output_{identifier}'
+
                 train.run(operation='train',
                           model=architecture,
                           data_dir=training_data_dir,
-                          output_dir=f'/tmp/output_{identifier}',
-                          model_fn=f'/tmp/output_{identifier}/model.weights.h5',
-                          visualization_path=f'/tmp/output_{identifier}',
+                          output_dir=output_dir,
+                          model_fn=f'{output_dir}/model.weights.h5',
+                          visualization_path=output_dir,
                           nr_epochs=2,
                           dropout_rate_hidden=dropout,
                           val_set_pct=0.5,
@@ -67,17 +70,21 @@ class TestCmd:
 
                 assert filecmp.cmp(f'/tmp/{identifier}.txt', f'cnn_lib/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
+                pathlib.rmdir(output_dir)
+
         # tests for architectures with backbone models
         architecture = 'DeepLab'
         for backbone in ('ResNet50', 'ResNet101', 'ResNet152'):
             for dropout in (0, 0.5):
                 identifier = f'{architecture.lower()}_drop{dropout}_{backbone}_categorical_crossentropy'
+                output_dir = f'/tmp/output_{identifier}'
+
                 train.run(operation='train',
                           model=architecture,
                           data_dir=training_data_dir,
-                          output_dir=f'/tmp/output_{identifier}',
-                          model_fn=f'/tmp/output_{identifier}/model.weights.h5',
-                          visualization_path=f'/tmp/output_{identifier}',
+                          output_dir=output_dir,
+                          model_fn=f'{output_dir}/model.weights.h5',
+                          visualization_path=output_dir,
                           nr_epochs=2,
                           dropout_rate_hidden=dropout,
                           val_set_pct=0.5,
@@ -97,16 +104,20 @@ class TestCmd:
 
                 assert filecmp.cmp(f'/tmp/{identifier}.txt', f'cnn_lib/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
+                pathlib.rmdir(output_dir)
+
         architecture = 'FCN'
         for backbone in ('VGG16', ):
             for dropout in (0, 0.5):
                 identifier = f'{architecture.lower()}_drop{dropout}_{backbone}_categorical_crossentropy'
+                output_dir = f'/tmp/output_{identifier}'
+
                 train.run(operation='train',
                           model=architecture,
                           data_dir=training_data_dir,
-                          output_dir=f'/tmp/output_{identifier}',
-                          model_fn=f'/tmp/output_{identifier}/model.weights.h5',
-                          visualization_path=f'/tmp/output_{identifier}',
+                          output_dir=output_dir,
+                          model_fn=f'{output_dir}/model.weights.h5',
+                          visualization_path=output_dir,
                           nr_epochs=2,
                           dropout_rate_hidden=dropout,
                           val_set_pct=0.5,
@@ -126,6 +137,8 @@ class TestCmd:
 
                 assert filecmp.cmp(f'/tmp/{identifier}.txt', f'cnn_lib/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
+                pathlib.rmdir(output_dir)
+
     def test_002_loss(self, capsys):
         """Test the consistency of a small cloud classification sample.
 
@@ -140,12 +153,14 @@ class TestCmd:
 
         for loss in ('categorical_crossentropy', 'dice'):
             identifier = f'u-net_drop0_{loss}'
+            output_dir = f'/tmp/output_{identifier}'
+
             train.run(operation='train',
                       model='U-Net',
                       data_dir=training_data_dir,
-                      output_dir=f'/tmp/output_{identifier}',
-                      model_fn=f'/tmp/output_{identifier}/model.weights.h5',
-                      visualization_path=f'/tmp/output_{identifier}',
+                      output_dir=output_dir,
+                      model_fn=f'{output_dir}/model.weights.h5',
+                      visualization_path=output_dir,
                       nr_epochs=2,
                       dropout_rate_hidden=0,
                       val_set_pct=0.5,
@@ -164,15 +179,19 @@ class TestCmd:
 
             assert filecmp.cmp(f'/tmp/{identifier}.txt', f'cnn_lib/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
+            pathlib.rmdir(output_dir)
+
         # test tversky
         for alpha, beta in ((0.3, 0.7), (0.7, 0.3)):
             identifier = f'u-net_drop0_tversky_{alpha}_{beta}'
+            output_dir = f'/tmp/output_{identifier}'
+
             train.run(operation='train',
                       model='U-Net',
                       data_dir=training_data_dir,
-                      output_dir=f'/tmp/output_{identifier}',
-                      model_fn=f'/tmp/output_{identifier}/model.weights.h5',
-                      visualization_path=f'/tmp/output_{identifier}',
+                      output_dir=output_dir,
+                      model_fn=f'{output_dir}/model.weights.h5',
+                      visualization_path=output_dir,
                       nr_epochs=2,
                       dropout_rate_hidden=0,
                       val_set_pct=0.5,
@@ -193,6 +212,8 @@ class TestCmd:
 
             assert filecmp.cmp(f'/tmp/{identifier}.txt', f'cnn_lib/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
+            pathlib.rmdir(output_dir)
+
     def test_003_augmentation(self, capsys):
         """Test the consistency of a small cloud classification sample.
 
@@ -205,12 +226,14 @@ class TestCmd:
                                          'training_set_clouds_multiclass')
 
         identifier = 'u-net_drop0_categorical_crossentropy_augment'
+        output_dir = f'/tmp/output_{identifier}'
+
         train.run(operation='train',
                   model='U-Net',
                   data_dir=training_data_dir,
-                  output_dir=f'/tmp/output_{identifier}',
-                  model_fn=f'/tmp/output_{identifier}/model.weights.h5',
-                  visualization_path=f'/tmp/output_{identifier}',
+                  output_dir=output_dir,
+                  model_fn=f'{output_dir}/model.weights.h5',
+                  visualization_path=output_dir,
                   nr_epochs=2,
                   dropout_rate_hidden=0,
                   val_set_pct=0.5,
@@ -230,3 +253,5 @@ class TestCmd:
             out.write(cap.out)
 
         assert filecmp.cmp(f'/tmp/{identifier}.txt', f'cnn_lib/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
+
+        pathlib.rmdir(output_dir)

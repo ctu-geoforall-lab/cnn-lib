@@ -2,7 +2,7 @@ import os
 import sys
 import pytest
 import filecmp
-import pathlib
+import shutil
 
 from difflib import unified_diff
 
@@ -70,7 +70,7 @@ class TestCmd:
 
                 assert filecmp.cmp(f'/tmp/{identifier}.txt', f'cnn_lib/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
-                pathlib.rmdir(output_dir)
+                shutil.rmtree(output_dir)
 
         # tests for architectures with backbone models
         architecture = 'DeepLab'
@@ -104,7 +104,7 @@ class TestCmd:
 
                 assert filecmp.cmp(f'/tmp/{identifier}.txt', f'cnn_lib/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
-                pathlib.rmdir(output_dir)
+                shutil.rmtree(output_dir)
 
         architecture = 'FCN'
         for backbone in ('VGG16', ):
@@ -137,7 +137,7 @@ class TestCmd:
 
                 assert filecmp.cmp(f'/tmp/{identifier}.txt', f'cnn_lib/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
-                pathlib.rmdir(output_dir)
+                shutil.rmtree(output_dir)
 
     def test_002_loss(self, capsys):
         """Test the consistency of a small cloud classification sample.
@@ -179,7 +179,7 @@ class TestCmd:
 
             assert filecmp.cmp(f'/tmp/{identifier}.txt', f'cnn_lib/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
-            pathlib.rmdir(output_dir)
+            shutil.rmtree(output_dir)
 
         # test tversky
         for alpha, beta in ((0.3, 0.7), (0.7, 0.3)):
@@ -212,7 +212,7 @@ class TestCmd:
 
             assert filecmp.cmp(f'/tmp/{identifier}.txt', f'cnn_lib/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
-            pathlib.rmdir(output_dir)
+            shutil.rmtree(output_dir)
 
     def test_003_augmentation(self, capsys):
         """Test the consistency of a small cloud classification sample.
@@ -254,4 +254,4 @@ class TestCmd:
 
         assert filecmp.cmp(f'/tmp/{identifier}.txt', f'cnn_lib/test/consistency_outputs/{identifier}.txt'), report_file(identifier)
 
-        pathlib.rmdir(output_dir)
+        shutil.rmtree(output_dir)

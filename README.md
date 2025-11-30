@@ -1,10 +1,16 @@
 # cnn-lib
 
-CNN tools and scripts allowing the user to choose a CNN architecture and train it/use it for semantic segmentation.
+CNN tools and scripts allowing the user to choose a CNN architecture and train
+it/use it for semantic segmentation.
 
-The tools started as source code accompanying [this PhD project](https://github.com/ctu-geoforall-lab-projects/phd-pesek-2024/tree/master). By the time and meanwhile, the code started to be used also for other projects at CTU GeoForAll Lab. In order to keep the code frozen at the moment of the defense of the thesis, any further development since Nov 2024 happens here.
+The tools started as source code accompanying
+[this PhD project](https://github.com/ctu-geoforall-lab-projects/phd-pesek-2024/tree/master).
+By the time and meanwhile, the code started to be used also for other projects
+at CTU GeoForAll Lab. In order to keep the code frozen at the moment of
+the defense of the thesis, any further development since Nov 2024 happens here.
 
-Starting from 2025, the tools are provided as a pip package in order to make it easier for other projects to override its classes without code duplication.
+Starting from 2025, the tools are provided as a pip package in order to make it
+easier for other projects to override its classes without code duplication.
 
 ## Dataset structure
 

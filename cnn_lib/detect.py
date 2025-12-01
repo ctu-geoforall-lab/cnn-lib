@@ -49,7 +49,7 @@ def run(data_dir, model, in_weights_path, visualization_path, batch_size,
         fit_memory, val_set_pct=val_set_pct, filter_by_class=filter_by_class,
         ignore_masks=ignore_masks)
 
-    # load weights if the model is supposed to do so
+    # load weights
     model.load_weights(in_weights_path)
     model.set_weights(utils.model_replace_nans(model.get_weights()))
 

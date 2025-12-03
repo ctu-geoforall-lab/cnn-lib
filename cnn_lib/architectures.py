@@ -1,7 +1,5 @@
 #!/usr/bin/python3
 
-import tensorflow as tf
-
 from abc import ABC, abstractmethod
 from tensorflow.keras import layers as k_layers
 from tensorflow.keras.layers import MaxPooling2D, Conv2D, Input, \

@@ -21,7 +21,7 @@ class _BaseModel(Model, ABC):
                  dilation_rate=1, tensor_shape=(256, 256),
                  activation=k_layers.ReLU, padding='same',
                  dropout_rate_input=None, dropout_rate_hidden=None,
-                 use_bias=True, onehot_encode=True, name='model', **kwargs):
+                 use_bias=True, onehot_encode=True, name=None, **kwargs):
         """Model constructor.
 
         :param nr_classes: number of classes to be predicted
@@ -44,6 +44,8 @@ class _BaseModel(Model, ABC):
         :param onehot_encode: boolean to onehot-encode masks in the last layer
         :param name: The name of the model
         """
+        if name is None:
+            name = self.__class__.__name__.lower()
         super(_BaseModel, self).__init__(name=name, **kwargs)
 
         self.nr_classes = nr_classes

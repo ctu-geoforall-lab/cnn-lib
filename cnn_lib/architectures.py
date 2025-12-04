@@ -45,7 +45,7 @@ class _BaseModel(Model, ABC):
         :param name: The name of the model
         """
         if name is None:
-            name = self.__class__.__name__.lower()
+            name = self.__class__.__name__
         super(_BaseModel, self).__init__(name=name, **kwargs)
 
         self.nr_classes = nr_classes

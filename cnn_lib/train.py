@@ -93,7 +93,7 @@ def train(model, train_generator, val_generator, id2code, batch_size,
     # set up model_path
     if model_fn is None:
         model_fn = '{}_ep{}_pat{}.weights.h5'.format(
-            model.lower(), nr_epochs, patience
+            model.name.lower(), nr_epochs, patience
         )
 
     out_model_path = os.path.join(output_dir, model_fn)

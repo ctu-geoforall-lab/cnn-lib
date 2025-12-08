@@ -35,7 +35,6 @@ def run(operation, data_dir, output_dir, model, model_fn, in_weights_path=None,
 
     # set TensorFlow seed
     if seed is not None:
-        import sys
         if int(tf.__version__.split('.')[1]) < 4:
             tf.random.set_seed(seed)
         else:

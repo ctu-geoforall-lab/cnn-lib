@@ -41,7 +41,7 @@ def run(data_dir, model, in_weights_path, visualization_path, batch_size,
             tf.keras.utils.set_random_seed(seed)
 
     model = create_model(model, len(id2code), nr_bands, tensor_shape,
-                         backbone=backbone, verbose=0)
+                         backbone=backbone, verbose=1)
 
     # val generator used for both the training and the detection
     val_generator = AugmentGenerator(

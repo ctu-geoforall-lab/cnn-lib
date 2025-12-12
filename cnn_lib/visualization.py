@@ -115,8 +115,8 @@ def visualize_detections(images, ground_truths, detections, id2code,
         # original image
         ax1 = fig.add_subplot(2, 2, 1)
         # TODO: expect also other data than S2
-        a = np.stack((images[i][:, :, 3], images[i][:, :, 2],
-                      images[i][:, :, 1]), axis=2)
+        a = np.stack((images[i][:, :, 2], images[i][:, :, 1],
+                      images[i][:, :, 0]), axis=2)
         ax1.imshow((255 / a.max() * a).astype(np.uint8))
         ax1.title.set_text('Actual image')
 

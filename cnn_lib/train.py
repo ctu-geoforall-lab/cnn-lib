@@ -120,7 +120,8 @@ def train(model, train_generator, val_generator, id2code, batch_size,
     # TODO: check custom earlystopping to monitor multiple metrics
     #       https://stackoverflow.com/questions/64556120/early-stopping-with-multiple-conditions
     es = EarlyStopping(mode=early_stop_mode, monitor=monitored_value,
-                       patience=patience, verbose=verbose, restore_best_weights=True)
+                       patience=patience, verbose=verbose,
+                       restore_best_weights=True)
     callbacks = [tb, mc, es]
 
     # steps per epoch not needed to be specified if the data are augmented, but

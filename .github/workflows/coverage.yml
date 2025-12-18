@@ -3,16 +3,16 @@ name: coverage
 on:
   push:
     branches:
-      - 'master'
+      - 'main'
     paths:
-      - 'src/**'
+      - 'cnn_lib/**'
       - 'docker/**'
       - '.github/**'
   pull_request:
     branches:
       - '*'
     paths:
-      - 'src/**'
+      - 'cnn_lib/**'
       - 'docker/**'
       - '.github/**'
 

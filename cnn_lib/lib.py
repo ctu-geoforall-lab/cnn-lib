@@ -52,8 +52,15 @@ class AugmentGenerator:
             data_dir, '{}_images'.format(operation))
         masks_dir = os.path.join(
             data_dir, '{}_masks'.format(operation))
+
         # generate the dataset structure if not generated
-        do_exist = [os.path.isdir(i) is True for i in (images_dir, masks_dir)]
+        if ignore_masks is False:
+            check_existence_dirs = (images_dir, masks_dir)
+        else:
+            check_existence_dirs = (images_dir, )
+
+        do_exist = [os.path.isdir(i) is True for i in check_existence_dirs]
+
         if force_dataset_generation is True or all(do_exist) is False:
             generate_dataset_structure(data_dir, tensor_shape, val_set_pct,
                                        filter_by_class, augment, ignore_masks,

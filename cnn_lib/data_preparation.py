@@ -11,7 +11,7 @@ from osgeo import gdal
 from cnn_lib.cnn_exceptions import DatasetError
 
 
-def generate_dataset_structure(data_dir, tensor_shape=(256, 256),
+def generate_dataset_structure(data_dir, input_regex, tensor_shape=(256, 256),
                                val_set_pct=0.2, filter_by_class=None,
                                augment=True, ignore_masks=False, verbose=1):
     """Generate the expected dataset structure.
@@ -20,6 +20,8 @@ def generate_dataset_structure(data_dir, tensor_shape=(256, 256),
     val_masks.
 
     :param data_dir: path to the directory containing images
+    :param input_regex: regex to be used to filter data supposed to be used
+        for training
     :param tensor_shape: shape of the first two dimensions of input tensors
     :param val_set_pct: percentage of the validation images in the dataset
     :param filter_by_class: classes of interest (if specified, only samples
@@ -44,9 +46,11 @@ def generate_dataset_structure(data_dir, tensor_shape=(256, 256),
     dir_names = train_val_determination(val_set_pct)
 
     # tile and write samples
-    source_images = sorted(glob.glob(os.path.join(data_dir, '*image.tif')))
+    filtered_files = sorted(
+        glob.glob(os.path.join(data_dir, f'*{input_regex}*')))
+    source_images = [i for i in filtered_files if 'image' in i]
     for i in source_images:
-        tile(i, i.replace('image.tif', 'label.tif'), tensor_shape,
+        tile(i, i.replace('image', 'label'), tensor_shape,
              filter_by_class, augment, dir_names, ignore_masks)
 
     # check if there are some training data

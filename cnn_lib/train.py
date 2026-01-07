@@ -16,19 +16,19 @@ from cnn_lib.architectures import create_model
 from cnn_lib.visualization import write_stats
 
 
-def run(operation, data_dir, output_dir, model, model_fn, in_weights_path=None,
-        visualization_path='/tmp', nr_epochs=1, initial_epoch=0, batch_size=1,
-        loss_function='dice', seed=1, patience=100, tensor_shape=(256, 256),
-        monitored_value='val_accuracy', force_dataset_generation=False,
-        fit_memory=False, augment=False, tversky_alpha=0.5,
-        tversky_beta=0.5, dropout_rate_input=None, dropout_rate_hidden=None,
-        val_set_pct=0.2, filter_by_class=None, backbone=None, name=None,
-        verbose=1):
+def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
+        in_weights_path=None, visualization_path='/tmp', nr_epochs=1,
+        initial_epoch=0, batch_size=1, loss_function='dice', seed=1,
+        patience=100, tensor_shape=(256, 256), monitored_value='val_accuracy',
+        force_dataset_generation=False, fit_memory=False, augment=False,
+        tversky_alpha=0.5, tversky_beta=0.5, dropout_rate_input=None,
+        dropout_rate_hidden=None, val_set_pct=0.2, filter_by_class=None,
+        backbone=None, name=None, verbose=1):
     if verbose > 0:
         utils.print_device_info()
 
     # get nr of bands
-    nr_bands = utils.get_nr_of_bands(data_dir)
+    nr_bands = utils.get_nr_of_bands(data_dir, input_regex)
 
     label_codes, label_names, id2code = utils.get_codings(
         os.path.join(data_dir, 'label_colors.txt'))
@@ -48,17 +48,19 @@ def run(operation, data_dir, output_dir, model, model_fn, in_weights_path=None,
 
     # val generator used for both the training and the detection
     val_generator = AugmentGenerator(
-        data_dir, batch_size, 'val', tensor_shape, force_dataset_generation,
-        fit_memory, augment=augment, val_set_pct=val_set_pct,
-        filter_by_class=filter_by_class, verbose=verbose)
+        data_dir, input_regex, batch_size, 'val', tensor_shape,
+        force_dataset_generation, fit_memory, augment=augment,
+        val_set_pct=val_set_pct, filter_by_class=filter_by_class,
+        verbose=verbose)
 
     # load weights if the model is supposed to do so
     if operation == 'fine-tune':
         model.load_weights(in_weights_path)
 
     train_generator = AugmentGenerator(
-        data_dir, batch_size, 'train', fit_memory=fit_memory,
+        data_dir, input_regex, batch_size, 'train', fit_memory=fit_memory,
         augment=augment)
+
     train(model, train_generator, val_generator, id2code, batch_size,
           output_dir, visualization_path, model_fn, nr_epochs,
           initial_epoch, seed=seed, patience=patience,

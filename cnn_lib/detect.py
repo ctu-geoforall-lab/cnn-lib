@@ -15,20 +15,23 @@ from cnn_lib.visualization import visualize_detections
 from cnn_lib.cnn_exceptions import DatasetError
 
 
-def run(data_dir, model, in_weights_path,
-        visualization_path='/tmp', batch_size=1, seed=1, tensor_shape=(256, 256),
-        force_dataset_generation=False, fit_memory=False, val_set_pct=1, filter_by_class=None,
-        backbone=None, ignore_masks=False):
+def run(data_dir, model, in_weights_path, input_regex='*.tif',
+        visualization_path='/tmp', batch_size=1, seed=1,
+        tensor_shape=(256, 256), force_dataset_generation=False,
+        fit_memory=False, val_set_pct=1, filter_by_class=None, backbone=None,
+        ignore_masks=False):
     utils.print_device_info()
 
     if ignore_masks is False:
         # check if labels are provided
         import glob
-        if len(glob.glob(os.path.join(data_dir, '*label.tif'))) == 0:
+        filtered_files = glob.glob(os.path.join(data_dir, f'*{input_regex}*'))
+        labels = [i for i in filtered_files if 'label' in i]
+        if len(labels) == 0:
             raise DatasetError('No labels provided in the dataset.')
 
     # get nr of bands
-    nr_bands = utils.get_nr_of_bands(data_dir)
+    nr_bands = utils.get_nr_of_bands(data_dir, input_regex)
 
     label_codes, label_names, id2code = utils.get_codings(
         os.path.join(data_dir, 'label_colors.txt'))
@@ -46,7 +49,7 @@ def run(data_dir, model, in_weights_path,
 
     # val generator used for both the training and the detection
     val_generator = AugmentGenerator(
-        data_dir, batch_size, 'val', tensor_shape, force_dataset_generation,
+        data_dir, input_regex, batch_size, 'val', tensor_shape, force_dataset_generation,
         fit_memory, val_set_pct=val_set_pct, filter_by_class=filter_by_class,
         ignore_masks=ignore_masks)
 

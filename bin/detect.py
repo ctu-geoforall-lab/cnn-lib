@@ -21,6 +21,11 @@ if __name__ == '__main__':
         '--data_dir', type=str, required=True,
         help='Path to the directory containing images and labels')
     parser.add_argument(
+        '--input_regex', type=str, default='*.tif',
+        help='Regex to be used to filter data supposed to be used for training.'
+             'The images still have to have "image" in their names while labels'
+             'have to have "label" in their names (if --ignore_masks not used).')
+    parser.add_argument(
         '--model', type=str, default='U-Net',
         choices=('U-Net', 'SegNet', 'DeepLab', 'FCN'),
         help='Model architecture')
@@ -85,8 +90,8 @@ if __name__ == '__main__':
 
     from cnn_lib.detect import run
 
-    run(args.data_dir, args.model, args.weights_path, args.visualization_path,
-        args.batch_size, args.seed, (args.tensor_height, args.tensor_width),
-        args.force_dataset_generation, args.fit_dataset_in_memory,
-        args.validation_set_percentage, args.filter_by_classes,
-        args.backbone, args.ignore_masks)
+    run(args.data_dir, args.model, args.weights_path, args.input_regex,
+        args.visualization_path, args.batch_size, args.seed,
+        (args.tensor_height, args.tensor_width), args.force_dataset_generation,
+        args.fit_dataset_in_memory, args.validation_set_percentage,
+        args.filter_by_classes, args.backbone, args.ignore_masks)

@@ -15,9 +15,10 @@ from cnn_lib.visualization import visualize_detections
 from cnn_lib.cnn_exceptions import DatasetError
 
 
-def run(data_dir, model, in_weights_path, visualization_path, batch_size,
-        seed, tensor_shape, force_dataset_generation, fit_memory, val_set_pct,
-        filter_by_class, backbone=None, ignore_masks=False):
+def run(data_dir, model, in_weights_path,
+        visualization_path='/tmp', batch_size=1, seed=1, tensor_shape=(256, 256),
+        force_dataset_generation=False, fit_memory=False, val_set_pct=1, filter_by_class=None,
+        backbone=None, ignore_masks=False):
     utils.print_device_info()
 
     if ignore_masks is False:

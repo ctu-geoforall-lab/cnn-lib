@@ -22,12 +22,15 @@ def get_codings(description_file):
     return label_codes, label_names, id2code
 
 
-def get_nr_of_bands(data_dir):
-    """Get number of bands in the first *image.tif raster in a directory.
+def get_nr_of_bands(data_dir, input_regex):
+    """Get number of bands in the first image raster in a directory.
 
     :param data_dir: directory with images for training or detection
+    :param input_regex: regex to be used to filter data supposed to be used
+        for training
     """
-    images = glob.glob(os.path.join(data_dir, '*image.tif'))
+    filtered_files = glob.glob(os.path.join(data_dir, f'*{input_regex}*'))
+    images = [i for i in filtered_files if 'image' in i]
     dataset_image = gdal.Open(images[0], gdal.GA_ReadOnly)
     nr_bands = dataset_image.RasterCount
     dataset_image = None

@@ -19,7 +19,7 @@ from cnn_lib.cnn_exceptions import LayerDefinitionError
 class AugmentGenerator:
     """Data generator."""
 
-    def __init__(self, data_dir, batch_size=5, operation='train',
+    def __init__(self, data_dir, input_regex, batch_size=5, operation='train',
                  tensor_shape=(256, 256), force_dataset_generation=False,
                  fit_memory=False, augment=False, onehot_encode=True,
                  val_set_pct=0.2, filter_by_class=None, ignore_masks=False,
@@ -27,6 +27,8 @@ class AugmentGenerator:
         """Initialize the generator.
 
         :param data_dir: path to the directory containing images
+        :param input_regex: regex to be used to filter data supposed to be used
+            for training
         :param batch_size: the number of samples that will be propagated
             through the network at once
         :param operation: either 'train' or 'val'
@@ -62,9 +64,9 @@ class AugmentGenerator:
         do_exist = [os.path.isdir(i) is True for i in check_existence_dirs]
 
         if force_dataset_generation is True or all(do_exist) is False:
-            generate_dataset_structure(data_dir, tensor_shape, val_set_pct,
-                                       filter_by_class, augment, ignore_masks,
-                                       verbose=verbose)
+            generate_dataset_structure(data_dir, input_regex, tensor_shape,
+                                       val_set_pct, filter_by_class, augment,
+                                       ignore_masks, verbose=verbose)
 
         # create variables useful throughout the entire class
         self.nr_samples = len(os.listdir(images_dir))

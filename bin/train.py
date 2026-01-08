@@ -27,6 +27,11 @@ if __name__ == '__main__':
         '--data_dir', type=str, required=True,
         help='Path to the directory containing images and labels')
     parser.add_argument(
+        '--input_regex', type=str, default='*.tif',
+        help='Regex to be used to filter data supposed to be used for training.'
+             'The images still have to have "image" in their names while labels'
+             'have to have "label" in their names.')
+    parser.add_argument(
         '--output_dir', type=str, required=True, default=None,
         help='Path where logs and the model will be saved')
     parser.add_argument(
@@ -142,10 +147,10 @@ if __name__ == '__main__':
 
     from cnn_lib.train import run
 
-    run(args.operation, args.data_dir, args.output_dir,
-        args.model, args.model_fn, args.weights_path, args.visualization_path,
-        args.nr_epochs, args.initial_epoch, args.batch_size,
-        args.loss_function, args.seed, args.patience,
+    run(args.operation, args.data_dir, args.output_dir, args.model,
+        args.model_fn, args.input_regex, args.weights_path,
+        args.visualization_path, args.nr_epochs, args.initial_epoch,
+        args.batch_size, args.loss_function, args.seed, args.patience,
         (args.tensor_height, args.tensor_width), args.monitored_value,
         args.force_dataset_generation, args.fit_dataset_in_memory,
         args.augment_training_dataset, args.tversky_alpha,

@@ -83,6 +83,7 @@ below:
 
 ```
 usage: train.py [-h] [--operation {train,fine-tune}] --data_dir DATA_DIR
+                [--input_regex INPUT_REGEX]
                 --output_dir OUTPUT_DIR [--model {U-Net,SegNet,DeepLab,FCN}]
                 [--model_fn MODEL_FN] [--weights_path WEIGHTS_PATH]
                 [--visualization_path VISUALIZATION_PATH]
@@ -110,6 +111,10 @@ optional arguments:
                         Choose either to train the model or to use a trained
                         one for detection
   --data_dir DATA_DIR   Path to the directory containing images and labels
+  --input_regex INPUT_REGEX
+                        Regex to be used to filter data supposed to be used for
+                        training.The images still have to have "image" in their
+                        names while labelshave to have "label" in their names.
   --output_dir OUTPUT_DIR
                         Path where logs and the model will be saved
   --model {U-Net,SegNet,DeepLab,FCN}
@@ -189,7 +194,7 @@ below:
 
 ```
 usage: detect.py [-h] --data_dir DATA_DIR [--model {U-Net,SegNet,DeepLab,FCN}]
-                 [--weights_path WEIGHTS_PATH]
+                 [--input_regex INPUT_REGEX] [--weights_path WEIGHTS_PATH]
                  [--visualization_path VISUALIZATION_PATH]
                  [--batch_size BATCH_SIZE] [--seed SEED]
                  [--tensor_height TENSOR_HEIGHT] [--tensor_width TENSOR_WIDTH]
@@ -205,6 +210,10 @@ Run detection
 optional arguments:
   -h, --help            show this help message and exit
   --data_dir DATA_DIR   Path to the directory containing images and labels
+  --input_regex INPUT_REGEX
+                        Regex to be used to filter data supposed to be used for
+                        training.The images still have to have "image" in their
+                        names while labelshave to have "label" in their names.
   --model {U-Net,SegNet,DeepLab,FCN}
                         Model architecture
   --weights_path WEIGHTS_PATH

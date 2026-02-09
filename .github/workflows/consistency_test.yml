@@ -7,7 +7,7 @@ on:
     paths:
       - 'cnn_lib/**'
       - 'docker/**'
-      - '.github/workflows/consistency_test.py'
+      - '.github/workflows/consistency_test.yml'
       - "!**.md"
   pull_request:
     branches:
@@ -15,7 +15,7 @@ on:
     paths:
       - 'cnn_lib/**'
       - 'docker/**'
-      - '.github/workflows/consistency_test.py'
+      - '.github/workflows/consistency_test.yml'
       - "!**.md"
 
 jobs:

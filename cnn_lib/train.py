@@ -27,8 +27,12 @@ def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
     if verbose > 0:
         utils.print_device_info()
 
-    # get nr of bands
-    nr_bands = utils.get_nr_of_bands(data_dir, input_regex)
+    if force_dataset_generation:
+        # get nr of bands
+        nr_bands = utils.get_nr_of_bands(data_dir, input_regex)
+    else:
+        nr_bands = utils.get_nr_of_bands(os.path.join(data_dir, 'train_images'), input_regex)
+
 
     label_codes, label_names, id2code = utils.get_codings(
         os.path.join(data_dir, 'label_colors.txt'))

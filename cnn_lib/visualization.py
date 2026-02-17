@@ -117,7 +117,10 @@ def visualize_detections(images, ground_truths, detections, id2code,
         # TODO: expect also other data than S2
         a = np.stack((images[i][:, :, 2], images[i][:, :, 1],
                       images[i][:, :, 0]), axis=2)
-        ax1.imshow((255 / a.max() * a).astype(np.uint8))
+        a_min = np.percentile(a, 2)
+        a_max = np.percentile(a, 98)
+        a_clipped = np.clip(a, a_min, a_max)
+        ax1.imshow(((a_clipped - a_min) / (a_max - a_min) * 255).astype(np.uint8))
         ax1.title.set_text('Actual image')
 
         # detections

@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import os
+import glob
 
 import tensorflow as tf
 
@@ -22,16 +23,24 @@ def run(data_dir, model, in_weights_path, input_regex='*.tif',
         ignore_masks=False):
     utils.print_device_info()
 
+    # get nr of bands
+    val_images_dir = os.path.join(data_dir, 'val_images')
+    if force_dataset_generation or not os.path.isdir(val_images_dir):
+        nr_bands = utils.get_nr_of_bands(data_dir, input_regex)
+    else:
+        nr_bands = utils.get_nr_of_bands(val_images_dir, input_regex)
+
     if ignore_masks is False:
-        # check if labels are provided
-        import glob
-        filtered_files = glob.glob(os.path.join(data_dir, f'*{input_regex}*'))
+        val_masks_dir = os.path.join(data_dir, 'val_masks')
+        if force_dataset_generation or not os.path.isdir(val_masks_dir):
+            search_dir = data_dir
+        else:
+            search_dir = val_masks_dir
+
+        filtered_files = glob.glob(os.path.join(search_dir, f'*{input_regex}*'))
         labels = [i for i in filtered_files if 'label' in i]
         if len(labels) == 0:
             raise DatasetError('No labels provided in the dataset.')
-
-    # get nr of bands
-    nr_bands = utils.get_nr_of_bands(data_dir, input_regex)
 
     label_codes, label_names, id2code = utils.get_codings(
         os.path.join(data_dir, 'label_colors.txt'))

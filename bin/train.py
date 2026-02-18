@@ -97,6 +97,16 @@ if __name__ == '__main__':
         help='Boolean to augment the training dataset with rotations, '
              'shear and flips')
     parser.add_argument(
+        '--padding_mode', type=str, default=None,
+        choices=('constant', 'reflect', 'symmetric'),
+        help='Padding mode for edge tiles ("reflect", "symmetric", "constant"), '
+             'or None for no padding (shift window behavior).')
+
+    parser.add_argument(
+        '--mask_ignore_value', type=int, default=255,
+        help='Label value for padded mask regions (default 255)')
+    
+    parser.add_argument(
         '--tversky_alpha', type=float, default=None,
         help='ONLY FOR LOSS_FUNCTION == TVERSKY: Coefficient alpha')
     parser.add_argument(
@@ -153,7 +163,7 @@ if __name__ == '__main__':
         args.batch_size, args.loss_function, args.seed, args.patience,
         (args.tensor_height, args.tensor_width), args.monitored_value,
         args.force_dataset_generation, args.fit_dataset_in_memory,
-        args.augment_training_dataset, args.tversky_alpha,
-        args.tversky_beta, args.dropout_rate_input,
+        args.augment_training_dataset, args.padding_mode, args.mask_ignore_value,
+        args.tversky_alpha, args.tversky_beta, args.dropout_rate_input,
         args.dropout_rate_hidden, args.validation_set_percentage,
         args.filter_by_classes, args.backbone)

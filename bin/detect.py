@@ -9,10 +9,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 if not '--help' in sys.argv and not '-h' in sys.argv:
     # in order to skip the slow import of tensorflow if not needed
     import cnn_lib.utils as utils
+
     bool_ = utils.str2bool
 else:
     bool_ = bool
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run detection')
@@ -76,6 +76,15 @@ if __name__ == '__main__':
         '--ignore_masks', type=bool_, default=False,
         help='Boolean to decide if computing also average statstics based on '
              'grand truth data or running only the prediction')
+    parser.add_argument(
+        '--padding_mode', type=str, default=None,
+        choices=('constant', 'reflect', 'symmetric'),
+        help='Padding mode for edge tiles ("reflect", "symmetric", "constant"), '
+             'or None for no padding (shift window behavior).')
+
+    parser.add_argument(
+        '--mask_ignore_value', type=int, default=255,
+        help='Label value for padded mask regions (default 255)')
 
     args = parser.parse_args()
 
@@ -94,4 +103,5 @@ if __name__ == '__main__':
         args.visualization_path, args.batch_size, args.seed,
         (args.tensor_height, args.tensor_width), args.force_dataset_generation,
         args.fit_dataset_in_memory, args.validation_set_percentage,
-        args.filter_by_classes, args.backbone, args.ignore_masks)
+        args.filter_by_classes, args.backbone, args.ignore_masks,
+        args.padding_mode, args.mask_ignore_value)

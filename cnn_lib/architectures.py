@@ -1290,7 +1290,7 @@ def create_model(model, nr_classes, nr_bands, tensor_shape,
                  nr_filters=64, optimizer='adam', loss='dice', metrics=None,
                  activation='relu', padding='same', verbose=1, alpha=None,
                  beta=None, dropout_rate_input=None, dropout_rate_hidden=None,
-                 backbone=None, name='model', **kwargs):
+                 backbone=None, mask_ignore_value=None, name='model', **kwargs):
     """Create intended model.
 
     :param model: model architecture
@@ -1318,6 +1318,8 @@ def create_model(model, nr_classes, nr_bands, tensor_shape,
     :param dropout_rate_hidden: float between 0 and 1. Fraction of the input
         units of the hidden layers to drop
     :param backbone: backbone architecture
+    :param mask_ignore_value: class index to ignore in loss computation (e.g.,
+        255 for padded regions). If None, no pixels are ignored.
     :param name: The name of the model
     :return: compiled model
     """
@@ -1350,9 +1352,9 @@ def create_model(model, nr_classes, nr_bands, tensor_shape,
 
     # get loss functions corresponding to non-TF losses
     if loss == 'dice':
-        loss = categorical_dice
+        loss = lambda gt, p: categorical_dice(gt, p, ignore_class=mask_ignore_value)
     elif loss == 'tversky':
-        loss = lambda gt, p: categorical_tversky(gt, p, alpha, beta)
+        loss = lambda gt, p: categorical_tversky(gt, p, alpha, beta, ignore_class=mask_ignore_value)
 
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
     model.build(input_shape=(None, tensor_shape[0], tensor_shape[1], nr_bands))

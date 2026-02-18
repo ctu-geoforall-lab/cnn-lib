@@ -22,7 +22,7 @@ class AugmentGenerator:
     def __init__(self, data_dir, input_regex, batch_size=5, operation='train',
                  tensor_shape=(256, 256), force_dataset_generation=False,
                  fit_memory=False, augment=False, onehot_encode=True,
-                 val_set_pct=0.2, filter_by_class=None, ignore_masks=False,
+                 val_set_pct=0.2, filter_by_class=None, ignore_masks=False, padding_mode=None, mask_ignore_value=255,
                  verbose=1):
         """Initialize the generator.
 
@@ -44,6 +44,9 @@ class AugmentGenerator:
             generation - if specified, only samples containing at least one of
             them will be created)
         :param ignore_masks: do not create nor return masks
+        :param padding_mode: padding mode for edge tiles ('reflect', 'symmetric',
+        'edge', 'constant', or None for no padding - shift window behavior)
+        :param mask_ignore_value: label value for padded mask regions (default 255)
         :param verbose: verbosity (0=quiet, >0 verbose)
         """
         if operation not in ('train', 'val'):
@@ -66,7 +69,7 @@ class AugmentGenerator:
         if force_dataset_generation is True or all(do_exist) is False:
             generate_dataset_structure(data_dir, input_regex, tensor_shape,
                                        val_set_pct, filter_by_class, augment,
-                                       ignore_masks, verbose=verbose)
+                                       ignore_masks, padding_mode, mask_ignore_value, verbose=verbose)
 
         # create variables useful throughout the entire class
         self.nr_samples = len(os.listdir(images_dir))
@@ -265,7 +268,7 @@ class AugmentGenerator:
 
 # loss functions
 
-def categorical_dice(ground_truth_onehot, predictions, weights=1):
+def categorical_dice(ground_truth_onehot, predictions, weights=1, ignore_class=None):
     """Compute the Sorensen-Dice loss.
 
     :param ground_truth_onehot: onehot ground truth labels
@@ -274,16 +277,18 @@ def categorical_dice(ground_truth_onehot, predictions, weights=1):
         (batch_size, img_height, img_width, nr_classes)
     :param weights: weights for individual classes
         (number-of-classes-long vector)
+    :param ignore_class: class index to ignore (e.g., 255 for padded regions).
+        If None, no pixels are ignored.
     :return: dice loss value averaged for all classes
     """
     loss = categorical_tversky(ground_truth_onehot, predictions, 0.5, 0.5,
-                               weights)
+                               weights, ignore_class=ignore_class)
 
     return loss
 
 
 def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5,
-                        beta=0.5, weights=1):
+                        beta=0.5, weights=1, ignore_class=None):
     """Compute the Tversky loss.
 
     alpha == beta == 0.5 -> Dice loss
@@ -297,16 +302,32 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5,
     :param beta: magnitude of penalties for false negatives
     :param weights: weights for individual classes
         (number-of-classes-long vector)
+    :param ignore_class: class index to ignore (e.g., 255 for padded regions).
+        If None, no pixels are ignored.
     :return: dice loss value averaged for all classes
     """
     weight_tensor = tf.constant(weights, dtype=tf.float32)
     predictions = tf.cast(predictions, tf.float32, name='tversky_cast_pred')
     ground_truth_onehot = tf.cast(ground_truth_onehot, tf.float32, name='tversky_cast_gt')
 
+    # if ignoring class used for padding
+    if ignore_class is not None:
+        # indices of ground truth classes
+        gt_class_indices = tf.argmax(ground_truth_onehot, axis=-1)
+        # mask - 1 where loss is computed, 0 where we want to ignore
+        valid_mask = tf.cast(tf.not_equal(gt_class_indices, ignore_class), tf.float32)
+        valid_mask = tf.expand_dims(valid_mask, axis=-1)
+    else:
+        valid_mask = 1.0
+
+    # Apply mask to both ground truth and predictions
+    ground_truth_masked = ground_truth_onehot * valid_mask
+    predictions_masked = predictions * valid_mask
+
     # compute true positives, false negatives and false positives
-    true_pos = ground_truth_onehot * predictions
-    false_neg = ground_truth_onehot * (1. - predictions)
-    false_pos = (1. - ground_truth_onehot) * predictions
+    true_pos = ground_truth_onehot * predictions_masked
+    false_neg = ground_truth_onehot * (1. - predictions_masked)
+    false_pos = (1. - ground_truth_onehot) * predictions_masked
 
     # compute Tversky coefficient
     numerator = true_pos

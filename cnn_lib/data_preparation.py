@@ -28,6 +28,9 @@ def generate_dataset_structure(data_dir, input_regex, tensor_shape=(256, 256),
         containing at least one of them will be created)
     :param augment: boolean saying whether to augment the dataset or not
     :param ignore_masks: do not create masks
+    :param padding_mode: padding mode for edge tiles ('reflect', 'symmetric',
+        'edge', 'constant', or None for no padding - shift window behavior)
+    :param mask_ignore_value: label value for padded mask regions (default 255)
     :param verbose: verbosity (0=quiet, >0 verbose)
     """
     # Create folders to hold images and masks

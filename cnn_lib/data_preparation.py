@@ -13,7 +13,7 @@ from cnn_lib.cnn_exceptions import DatasetError
 
 def generate_dataset_structure(data_dir, input_regex, tensor_shape=(256, 256),
                                val_set_pct=0.2, filter_by_class=None,
-                               augment=True, ignore_masks=False, verbose=1):
+                               augment=True, ignore_masks=False,padding_mode=None, mask_ignore_value=255, verbose=1):
     """Generate the expected dataset structure.
 
     Will generate directories train_images, train_masks, val_images and
@@ -51,7 +51,7 @@ def generate_dataset_structure(data_dir, input_regex, tensor_shape=(256, 256),
     source_images = [i for i in filtered_files if 'image' in i]
     for i in source_images:
         tile(i, i.replace('image', 'label'), tensor_shape,
-             filter_by_class, augment, dir_names, ignore_masks)
+             filter_by_class, augment, dir_names, ignore_masks, padding_mode, mask_ignore_value)
 
     # check if there are some training data
     train_images_nr = len(os.listdir(os.path.join(data_dir, 'train_images')))
@@ -67,7 +67,7 @@ def generate_dataset_structure(data_dir, input_regex, tensor_shape=(256, 256),
 
 
 def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
-         augment=True, dir_names=None, ignore_masks=False):
+         augment=True, dir_names=None, ignore_masks=False, padding_mode=None, mask_ignore_value=255 ):
     """Tile the big scene into smaller samples and write them.
 
     If filter_by_class is not None, only samples containing at least one of
@@ -83,6 +83,9 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
     :param augment: boolean saying whether to augment the dataset or not
     :param dir_names: a generator determining directory names (train/val)
     :param ignore_masks: do not create masks
+    :param padding_mode: padding mode for edge tiles ('reflect', 'symmetric',
+        'edge', 'constant', or None for no padding - shift window behavior)
+    :param mask_ignore_value: label value for padded mask regions (default 255)
     """
     rows_step = tensor_shape[0]
     cols_step = tensor_shape[1]
@@ -123,20 +126,45 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
     scene_dir, scene_name = os.path.split(scene_path[:-10])
 
     for i in range(0, nr_cols, cols_step):
-        # if reaching the end of the image, expand the window back to
-        # avoid pixels outside the image
-        if i + cols_step > nr_cols:
-            i = nr_cols - cols_step
-
-        for j in range(0, nr_rows, rows_step):
+        if padding_mode is None:
+            # shift window
             # if reaching the end of the image, expand the window back to
             # avoid pixels outside the image
-            if j + rows_step > nr_rows:
-                j = nr_rows - rows_step
+            if i + cols_step > nr_cols:
+                i = nr_cols - cols_step
+            actual_cols = cols_step
+            right_pad = 0
+
+        else:
+            # crop what is available and add padding if needed
+            if i + cols_step > nr_cols:
+                actual_cols = nr_cols - i
+                right_pad = cols_step - actual_cols
+            else:
+                actual_cols = cols_step
+                right_pad = 0
+
+        for j in range(0, nr_rows, rows_step):
+            if padding_mode is None:
+                # shift window
+                # if reaching the end of the image, expand the window back to
+                # avoid pixels outside the image
+                if j + rows_step > nr_rows:
+                    j = nr_rows - rows_step
+                actual_rows = rows_step
+                bottom_pad = 0
+            else:
+                # crop what is available and add padding if needed
+                if j + rows_step > nr_rows:
+                    actual_rows = nr_rows - j
+                    bottom_pad = rows_step - actual_rows
+                else:
+                    actual_rows = rows_step
+                    bottom_pad = 0
 
             # if filtering, check if it makes sense to continue
             if filt is True and ignore_masks is False:
-                labels_cropped = labels_np[j:j + rows_step, i:i + cols_step]
+                labels_cropped = labels_np[j:j + actual_rows, i:i + actual_cols]
                 if not any(i in labels_cropped for i in filter_by_class):
                     # no occurrence of classes to filter by - continue with
                     # next patch
@@ -150,20 +178,72 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
             output_scene_path = os.path.join(scene_dir,
                                              '{}_images'.format(dir_name),
                                              scene_name + f'_{i}_{j}.tif')
-
-            # crop
-            gdal.Translate(output_scene_path,
-                           scene_path,
-                           srcWin=(i, j, cols_step, rows_step))
-
-            if ignore_masks is False:
-                # do the same for masks
-                output_mask_path = os.path.join(scene_dir,
-                                                '{}_masks'.format(dir_name),
-                                                scene_name + f'_{i}_{j}.tif')
-                gdal.Translate(output_mask_path,
-                               labels_path,
+            # check if padding is needed
+            pad_needed = right_pad>0 or bottom_pad>0
+            if not pad_needed:
+                # create tile directly
+                gdal.Translate(output_scene_path,
+                               scene_path,
                                srcWin=(i, j, cols_step, rows_step))
+
+                if ignore_masks is False:
+                    # do the same for masks
+                    output_mask_path = os.path.join(scene_dir,
+                                                    '{}_masks'.format(dir_name),
+                                                    scene_name + f'_{i}_{j}.tif')
+                    gdal.Translate(output_mask_path,
+                                   labels_path,
+                                   srcWin=(i, j, cols_step, rows_step))
+            else:
+                # crop, add padding and then save
+                scene_src = gdal.Open(scene_path, gdal.GA_ReadOnly)
+                scene_bands = []
+                for band_i in range(1, nr_bands + 1):
+                    # read band
+                    band_array = scene_src.GetRasterBand(band_i).ReadAsArray(
+                        i, j, actual_cols, actual_rows)
+                    # apply padding
+                    padded_band = np.pad(band_array, ((0, bottom_pad), (0, right_pad)), mode=padding_mode)
+                    scene_bands.append(padded_band)
+
+                geo_transform = scene_src.GetGeoTransform()
+                # Adjust geotransform for the cropped origin
+                new_geo_transform = list(geo_transform)
+                new_geo_transform[0] = geo_transform[0] + i * geo_transform[1]
+                new_geo_transform[3] = geo_transform[3] + j * geo_transform[5]
+                scene_src = None
+
+                # Write padded image
+                out_scene = driver.Create(output_scene_path, cols_step, rows_step, nr_bands, data_type)
+                out_scene.SetGeoTransform(new_geo_transform)
+                out_scene.SetProjection(projection)
+
+                for band_i in range(nr_bands):
+                    out_band = out_scene.GetRasterBand(
+                        band_i + 1)
+                    out_band.WriteArray(scene_bands[band_i], 0, 0)
+
+                out_scene = None
+
+                if ignore_masks is False:
+                    mask_src = gdal.Open(labels_path, gdal.GA_ReadOnly)
+                    mask_array = mask_src.GetRasterBand(1).ReadAsArray(
+                        i, j, actual_cols, actual_rows)
+                    mask_src = None
+
+                    padded_mask = np.pad(mask_array,((0, bottom_pad), (0, right_pad)),mode='constant',constant_values=mask_ignore_value)
+
+                    output_mask_path = os.path.join(
+                        scene_dir,
+                        '{}_masks'.format(dir_name),
+                        scene_name + f'_{i}_{j}.tif'
+                    )
+                    out_mask = driver.Create(output_mask_path, cols_step, rows_step, 1, gdal.GDT_UInt16)
+                    out_mask.SetGeoTransform(new_geo_transform)
+                    out_mask.SetProjection(projection)
+                    out_mask_band = out_mask.GetRasterBand(1)
+                    out_mask_band.WriteArray(padded_mask, 0, 0)
+                    out_mask = None
 
             if augment is False:
                 # the following code is unnecessary then

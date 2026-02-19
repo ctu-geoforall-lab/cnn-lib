@@ -105,7 +105,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--mask_ignore_value', type=int, default=255,
         help='Label value for padded mask regions (default 255)')
-    
+
     parser.add_argument(
         '--tversky_alpha', type=float, default=None,
         help='ONLY FOR LOSS_FUNCTION == TVERSKY: Coefficient alpha')

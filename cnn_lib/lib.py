@@ -310,7 +310,7 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5,
     predictions = tf.cast(predictions, tf.float32, name='tversky_cast_pred')
     ground_truth_onehot = tf.cast(ground_truth_onehot, tf.float32, name='tversky_cast_gt')
 
-    # if ignoring class used for padding
+    # if ignore class (for padding)
     if ignore_class is not None:
         # indices of ground truth classes
         gt_class_indices = tf.argmax(ground_truth_onehot, axis=-1)
@@ -320,18 +320,13 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5,
     else:
         valid_mask = 1.0
 
-    # # Apply mask to both ground truth and predictions
-    # ground_truth_masked = ground_truth_onehot * valid_mask
-    # predictions_masked = predictions * valid_mask
-
     # compute true positives, false negatives and false positives
     true_pos = ground_truth_onehot * predictions * valid_mask
     false_neg = ground_truth_onehot * (1. - predictions) * valid_mask
     false_pos = (1. - ground_truth_onehot) * predictions * valid_mask
 
     # compute Tversky coefficient
-    numerator = true_pos
-    numerator = tf.reduce_sum(numerator, axis=(1, 2))
+    numerator = tf.reduce_sum(true_pos, axis=(1, 2))
     denominator = (tf.reduce_sum(true_pos, axis=(1, 2)) +
                    alpha * tf.reduce_sum(false_neg, axis=(1, 2)) +
                    beta * tf.reduce_sum(false_pos, axis=(1, 2)))
@@ -339,21 +334,8 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5,
 
     # reduce mean for batches
     tversky = tf.reduce_mean(tversky, axis=0)
-
-    if ignore_class is not None:
-        # mask for classes - 1 for valid classes, 0 for ignore class
-        # to exclude ignore_class from loss computation
-        num_classes = tf.shape(tversky)[0]
-        class_indices = tf.range(num_classes)
-        class_mask = tf.cast(tf.not_equal(class_indices, ignore_class), tf.float32)
-
-        # apply class mask and compute mean only over valid classes
-        valid_tversky = tversky * class_mask
-        num_valid_classes = tf.reduce_sum(class_mask)
-        loss = 1 - tf.reduce_sum(weight_tensor * valid_tversky) / num_valid_classes
-    else:
-        # reduce mean for classes and multiply them by weights
-        loss = 1 - tf.reduce_mean(weight_tensor * tversky)
+    # reduce mean for classes and multiply them by weights
+    loss = 1 - tf.reduce_mean(weight_tensor * tversky)
 
     return loss
 

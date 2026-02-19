@@ -287,8 +287,7 @@ def categorical_dice(ground_truth_onehot, predictions, weights=1, ignore_class=N
     return loss
 
 
-def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5,
-                        beta=0.5, weights=1, ignore_class=None):
+def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5, beta=0.5, weights=1, ignore_class=None):
     """Compute the Tversky loss.
 
     alpha == beta == 0.5 -> Dice loss
@@ -313,9 +312,8 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5,
     # if ignore class (for padding)
     if ignore_class is not None:
         # indices of ground truth classes
-        gt_class_indices = tf.argmax(ground_truth_onehot, axis=-1)
-        # mask - 1 where loss is computed, 0 where to ignore
-        valid_mask = tf.cast(tf.not_equal(gt_class_indices, ignore_class), tf.float32)
+        pixel_has_class = tf.reduce_sum(ground_truth_onehot, axis=-1)
+        valid_mask = tf.cast(pixel_has_class > 0, tf.float32)
         valid_mask = tf.expand_dims(valid_mask, axis=-1)
     else:
         valid_mask = 1.0
@@ -330,12 +328,20 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5,
     denominator = (tf.reduce_sum(true_pos, axis=(1, 2)) +
                    alpha * tf.reduce_sum(false_neg, axis=(1, 2)) +
                    beta * tf.reduce_sum(false_pos, axis=(1, 2)))
-    tversky = numerator / denominator
+    tversky = numerator / (denominator+1e-6)
 
     # reduce mean for batches
     tversky = tf.reduce_mean(tversky, axis=0)
-    # reduce mean for classes and multiply them by weights
-    loss = 1 - tf.reduce_mean(weight_tensor * tversky)
+
+    # exclude classes with no ground-truth pixels
+    gt_per_class = tf.reduce_sum(tf.reduce_sum(true_pos, axis=(1, 2)) + tf.reduce_sum(false_neg, axis=(1, 2)), axis=0)
+    class_has_gt = tf.reduce_sum(gt_per_class, axis=0) > 0
+    class_present = tf.cast(class_has_gt, tf.float32)
+    weighted_tversky = weight_tensor * tversky * class_present
+    num_present = tf.reduce_sum(class_present)
+
+    # reduce mean for classes
+    loss = 1 - tf.reduce_sum(weighted_tversky) / (num_present+1e-6)
 
     return loss
 

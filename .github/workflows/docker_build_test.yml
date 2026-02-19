@@ -6,13 +6,13 @@ on:
       - 'main'
     paths:
       - 'docker/**'
-      - '.github/**'
+      - '.github/workflows/docker_build_test.yml'
   pull_request:
     branches:
       - '*'
     paths:
       - 'docker/**'
-      - '.github/**'
+      - '.github/workflows/docker_build_test.yml'
 
 jobs:
   docker-cpu:

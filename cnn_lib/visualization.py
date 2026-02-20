@@ -117,7 +117,10 @@ def visualize_detections(images, ground_truths, detections, id2code,
         # TODO: expect also other data than S2
         a = np.stack((images[i][:, :, 2], images[i][:, :, 1],
                       images[i][:, :, 0]), axis=2)
-        ax1.imshow((255 / a.max() * a).astype(np.uint8))
+        a_min = np.percentile(a, 2)
+        a_max = np.percentile(a, 98)
+        a_clipped = np.clip(a, a_min, a_max)
+        ax1.imshow(((a_clipped - a_min) / (a_max - a_min) * 255).astype(np.uint8))
         ax1.title.set_text('Actual image')
 
         # detections
@@ -145,13 +148,13 @@ def visualize_detections(images, ground_truths, detections, id2code,
             conf_matrix = conf_matrix.numpy()[label_codes][:, label_codes]
             # normalize the confusion matrix
             row_sums = conf_matrix.sum(axis=1)[:, np.newaxis]
-            # TODO: solve division by 0
+            row_sums_safe = np.where(row_sums == 0, 1, row_sums)
             cm_norm = np.around(
-                conf_matrix.astype('float') / row_sums, decimals=2
+                conf_matrix.astype('float') / row_sums_safe, decimals=2
             )
             # visualize
             ax2.imshow(cm_norm, cmap=plt.cm.Blues)
-            y_labels = ['{}\n{}'.format(label_names[j], row_sums[j]) for j in
+            y_labels = ['{}\n{}'.format(label_names[j], row_sums_safe[j]) for j in
                         name_range]
             plt.xticks(name_range, label_names)
             plt.yticks(name_range, y_labels)

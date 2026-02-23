@@ -204,10 +204,7 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
                     i, j, actual_cols, actual_rows)
                 mask_src = None
                 if pad_needed:
-                    mask_array = np.pad(
-                        mask_array,
-                        ((0, bottom_pad), (0, right_pad)),
-                        mode='constant', constant_values=mask_ignore_value)
+                    mask_array = np.pad(mask_array, ((0, bottom_pad), (0, right_pad)), mode='constant', constant_values=mask_ignore_value)
             else:
                 mask_array = None
 

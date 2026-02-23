@@ -184,140 +184,68 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
                                              scene_name + f'_{i}_{j}.tif')
             # check if padding is needed
             pad_needed = right_pad>0 or bottom_pad>0
-            if not pad_needed:
-                # create tile directly
-                gdal.Translate(output_scene_path,
-                               scene_path,
-                               srcWin=(i, j, cols_step, rows_step))
 
-                if ignore_masks is False:
-                    # do the same for masks
-                    output_mask_path = os.path.join(scene_dir,
-                                                    '{}_masks'.format(dir_name),
-                                                    scene_name + f'_{i}_{j}.tif')
-                    gdal.Translate(output_mask_path,
-                                   labels_path,
-                                   srcWin=(i, j, cols_step, rows_step))
-            else:
-                # crop, add padding and then save
-                scene_src = gdal.Open(scene_path, gdal.GA_ReadOnly)
-                scene_bands = []
-                for band_i in range(1, nr_bands + 1):
-                    # read band
-                    band_array = scene_src.GetRasterBand(band_i).ReadAsArray(
-                        i, j, actual_cols, actual_rows)
-                    # apply padding
-                    padded_band = np.pad(band_array, ((0, bottom_pad), (0, right_pad)), mode=padding_mode)
-                    scene_bands.append(padded_band)
+            scene_src = gdal.Open(scene_path, gdal.GA_ReadOnly)
+            raw_geo = scene_src.GetGeoTransform()
+            # read all bands at once as a (bands, rows, cols) array
+            scene_array = scene_src.ReadAsArray(i, j, actual_cols, actual_rows)
+            if pad_needed:
+                scene_array = np.pad(scene_array, ((0, 0), (0, bottom_pad), (0, right_pad)), mode=padding_mode)
+            scene_src = None
+            scene_bands = list(scene_array)
 
-                geo_transform = scene_src.GetGeoTransform()
-                # Adjust geotransform for the cropped origin
-                new_geo_transform = list(geo_transform)
-                new_geo_transform[0] = geo_transform[0] + i * geo_transform[1]
-                new_geo_transform[3] = geo_transform[3] + j * geo_transform[5]
-                scene_src = None
-
-                # Write padded image
-                out_scene = driver.Create(output_scene_path, cols_step, rows_step, nr_bands, data_type)
-                out_scene.SetGeoTransform(new_geo_transform)
-                out_scene.SetProjection(projection)
-
-                for band_i in range(nr_bands):
-                    out_band = out_scene.GetRasterBand(
-                        band_i + 1)
-                    out_band.WriteArray(scene_bands[band_i], 0, 0)
-
-                out_scene = None
-
-                if ignore_masks is False:
-                    mask_src = gdal.Open(labels_path, gdal.GA_ReadOnly)
-                    mask_array = mask_src.GetRasterBand(1).ReadAsArray(
-                        i, j, actual_cols, actual_rows)
-                    mask_src = None
-
-                    padded_mask = np.pad(mask_array,((0, bottom_pad), (0, right_pad)),mode='constant',constant_values=mask_ignore_value)
-
-                    output_mask_path = os.path.join(
-                        scene_dir,
-                        '{}_masks'.format(dir_name),
-                        scene_name + f'_{i}_{j}.tif'
-                    )
-                    out_mask = driver.Create(output_mask_path, cols_step, rows_step, 1, gdal.GDT_UInt16)
-                    out_mask.SetGeoTransform(new_geo_transform)
-                    out_mask.SetProjection(projection)
-                    out_mask_band = out_mask.GetRasterBand(1)
-                    out_mask_band.WriteArray(padded_mask, 0, 0)
-                    out_mask = None
-
-            if augment is False:
-                # the following code is unnecessary then
-                continue
-
-            # AUGMENTATION SECTION
-
-            # get info (in the loop because we want the geotransform
-            # of the cropped image)
-            src_scene = gdal.Open(output_scene_path, gdal.GA_ReadOnly)
-            geo_transform = src_scene.GetGeoTransform()
-            src_bands = []
-            for band_i in range(1, nr_bands + 1):
-                src_bands.append(
-                    src_scene.GetRasterBand(band_i).ReadAsArray())
+            geo_transform = list(raw_geo)
+            geo_transform[0] = raw_geo[0] + i * raw_geo[1]
+            geo_transform[3] = raw_geo[3] + j * raw_geo[5]
 
             if ignore_masks is False:
-                src_mask = gdal.Open(output_mask_path, gdal.GA_ReadOnly)
-                src_mask_band = src_mask.GetRasterBand(1).ReadAsArray()
+                mask_src = gdal.Open(labels_path, gdal.GA_ReadOnly)
+                mask_array = mask_src.GetRasterBand(1).ReadAsArray(
+                    i, j, actual_cols, actual_rows)
+                mask_src = None
+                if pad_needed:
+                    mask_array = np.pad(
+                        mask_array,
+                        ((0, bottom_pad), (0, right_pad)),
+                        mode='constant', constant_values=mask_ignore_value)
             else:
-                src_mask_band = None
+                mask_array = None
 
-            src_scene = None
-            src_mask = None
-
-            for rot_k in rotations:
+            # unified loop over original + rotations
+            all_rotations = [0] + list(rotations) if augment else [0]
+            for rot_k in all_rotations:
                 dir_name = next(dir_names)
+                suffix = f'_rot{rot_k * 90}' if rot_k > 0 else ''
 
-                # add 'rot_{X}deg' to the filename
-                rot_scene_path = os.path.join(
+                out_scene_path = os.path.join(
                     scene_dir, '{}_images'.format(dir_name),
-                    scene_name + f'_{i}_{j}_rot{rot_k * 90}.tif')
-
-                # create files
-                out_scene = driver.Create(
-                    rot_scene_path,
-                    cols_step,
-                    rows_step,
-                    nr_bands,
-                    data_type)
-
+                    scene_name + f'_{i}_{j}{suffix}.tif')
+                out_scene = driver.Create(out_scene_path,
+                                          cols_step, rows_step,
+                                          nr_bands, data_type)
                 out_scene.SetGeoTransform(geo_transform)
                 out_scene.SetProjection(projection)
-
-                # write rotated arrays
                 for band_i in range(nr_bands):
-                    out_scene_band = out_scene.GetRasterBand(
-                        band_i + 1)
-                    out_scene_band.WriteArray(
-                        np.rot90(src_bands[band_i], rot_k), 0, 0)
+                    band_array = scene_array[band_i]
+                    if rot_k > 0:
+                        band_array = np.rot90(band_array, rot_k)
+                    out_scene.GetRasterBand(band_i + 1).WriteArray(band_array)
+                out_scene = None
 
                 if ignore_masks is False:
-                    # do the same for masks
-                    rot_mask_path = os.path.join(
+                    out_mask_path = os.path.join(
                         scene_dir, '{}_masks'.format(dir_name),
-                        scene_name + f'_{i}_{j}_rot{rot_k * 90}.tif')
-                    out_mask = driver.Create(
-                        rot_mask_path,
-                        cols_step,
-                        rows_step,
-                        1,
-                        gdal.GDT_UInt16)
+                        scene_name + f'_{i}_{j}{suffix}.tif')
+                    out_mask = driver.Create(out_mask_path,
+                                             cols_step, rows_step,
+                                             1, gdal.GDT_UInt16)
                     out_mask.SetGeoTransform(geo_transform)
                     out_mask.SetProjection(projection)
-                    out_mask_band = out_mask.GetRasterBand(1)
-                    out_mask_band.WriteArray(
-                        np.rot90(src_mask_band, rot_k), 0, 0)
-
-                out_scene = None
-                out_mask = None
+                    mask_to_write = mask_array
+                    if rot_k > 0:
+                        mask_to_write = np.rot90(mask_array, rot_k)
+                    out_mask.GetRasterBand(1).WriteArray(mask_to_write)
+                    out_mask = None
 
 
 def train_val_determination(pct):

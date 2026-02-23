@@ -333,15 +333,8 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5, beta=0.5, w
     # reduce mean for batches
     tversky = tf.reduce_mean(tversky, axis=0)
 
-    # exclude classes with no ground-truth pixels
-    gt_per_class = tf.reduce_sum(tf.reduce_sum(true_pos, axis=(1, 2)) + tf.reduce_sum(false_neg, axis=(1, 2)), axis=0)
-    class_has_gt = tf.reduce_sum(gt_per_class, axis=0) > 0
-    class_present = tf.cast(class_has_gt, tf.float32)
-    weighted_tversky = weight_tensor * tversky * class_present
-    num_present = tf.reduce_sum(class_present)
-
-    # reduce mean for classes
-    loss = 1 - tf.reduce_sum(weighted_tversky) / (num_present+1e-6)
+    # reduce mean for classes and multiply them by weights
+    loss = 1 - tf.reduce_mean(weight_tensor * tversky)
 
     return loss
 

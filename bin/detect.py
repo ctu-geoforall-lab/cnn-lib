@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '--mask_ignore_value', type=int, default=255,
-        help='Label value for padded mask regions (default 255)')
+        help='ONLY FOR PADDING: Label value for padded mask regions (default 255)')
 
     args = parser.parse_args()
 
@@ -96,7 +96,10 @@ if __name__ == '__main__':
         raise parser.error(
             'Argument validation_set_percentage must be greater or equal to 0 '
             'and smaller than 1')
-
+    if args.padding_mode is None and 'mask_ignore_value' in sys.argv:
+        raise parser.error(
+            'mask_ignore_value can only be set if padding_mode is not None'
+        )
     from cnn_lib.detect import run
 
     run(args.data_dir, args.model, args.weights_path, args.input_regex,

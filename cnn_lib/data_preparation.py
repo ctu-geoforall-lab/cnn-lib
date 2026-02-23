@@ -169,7 +169,7 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
             # if filtering, check if it makes sense to continue
             if filt is True and ignore_masks is False:
                 labels_cropped = labels_np[j:j + actual_rows, i:i + actual_cols]
-                if not any(i in labels_cropped for i in filter_by_class):
+                if not np.isin(labels_cropped, filter_by_class).any():
                     # no occurrence of classes to filter by - continue with
                     # next patch
                     continue

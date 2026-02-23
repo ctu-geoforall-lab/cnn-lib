@@ -123,6 +123,7 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
     if ignore_masks is False:
         labels = gdal.Open(labels_path, gdal.GA_ReadOnly)
         labels_np = labels.GetRasterBand(1).ReadAsArray()
+        labels = None
     else:
         labels_np = None
 

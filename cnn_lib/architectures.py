@@ -1290,7 +1290,7 @@ def create_model(model, nr_classes, nr_bands, tensor_shape,
                  nr_filters=64, optimizer='adam', loss='dice', metrics=None,
                  activation='relu', padding='same', verbose=1, alpha=None,
                  beta=None, dropout_rate_input=None, dropout_rate_hidden=None,
-                 backbone=None, mask_ignore_value=None, name='model', **kwargs):
+                 backbone=None, padding_mode = None, mask_ignore_value=255, name='model', **kwargs):
     """Create intended model.
 
     :param model: model architecture
@@ -1318,8 +1318,10 @@ def create_model(model, nr_classes, nr_bands, tensor_shape,
     :param dropout_rate_hidden: float between 0 and 1. Fraction of the input
         units of the hidden layers to drop
     :param backbone: backbone architecture
+    :param padding_mode: padding mode for edge tiles ('reflect', 'symmetric',
+        'edge', 'constant', or None for no padding - shift window behavior)
     :param mask_ignore_value: class index to ignore in loss computation (e.g.,
-        255 for padded regions). If None, no pixels are ignored.
+        255 for padded regions). If None, no pixels are ignored. Only applied when padding_mode is not None
     :param name: The name of the model
     :return: compiled model
     """
@@ -1351,10 +1353,11 @@ def create_model(model, nr_classes, nr_bands, tensor_shape,
                                  **kwargs)
 
     # get loss functions corresponding to non-TF losses
+    ignore = mask_ignore_value if padding_mode is not None else None
     if loss == 'dice':
-        loss = lambda gt, p: categorical_dice(gt, p, ignore_class=mask_ignore_value)
+        loss = lambda gt, p: categorical_dice(gt, p, ignore_class=ignore)
     elif loss == 'tversky':
-        loss = lambda gt, p: categorical_tversky(gt, p, alpha, beta, ignore_class=mask_ignore_value)
+        loss = lambda gt, p: categorical_tversky(gt, p, alpha, beta, ignore_class=ignore)
 
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
     model.build(input_shape=(None, tensor_shape[0], tensor_shape[1], nr_bands))

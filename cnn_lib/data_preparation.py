@@ -13,7 +13,7 @@ from cnn_lib.cnn_exceptions import DatasetError
 
 def generate_dataset_structure(data_dir, input_regex, tensor_shape=(256, 256),
                                val_set_pct=0.2, filter_by_class=None,
-                               augment=True, ignore_masks=False,padding_mode=None, mask_ignore_value=255, verbose=1):
+                               augment=True, ignore_masks=False, padding_mode=None, mask_ignore_value=255, verbose=1):
     """Generate the expected dataset structure.
 
     Will generate directories train_images, train_masks, val_images and

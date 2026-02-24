@@ -176,12 +176,7 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
 
             # CROPPING SECTION
 
-            dir_name = next(dir_names)
 
-            # get paths
-            output_scene_path = os.path.join(scene_dir,
-                                             '{}_images'.format(dir_name),
-                                             scene_name + f'_{i}_{j}.tif')
             # check if padding is needed
             pad_needed = right_pad>0 or bottom_pad>0
 
@@ -192,7 +187,6 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
             if pad_needed:
                 scene_array = np.pad(scene_array, ((0, 0), (0, bottom_pad), (0, right_pad)), mode=padding_mode)
             scene_src = None
-            scene_bands = list(scene_array)
 
             geo_transform = list(raw_geo)
             geo_transform[0] = raw_geo[0] + i * raw_geo[1]
@@ -223,10 +217,7 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
                 out_scene.SetGeoTransform(geo_transform)
                 out_scene.SetProjection(projection)
                 for band_i in range(nr_bands):
-                    band_array = scene_array[band_i]
-                    if rot_k > 0:
-                        band_array = np.rot90(band_array, rot_k)
-                    out_scene.GetRasterBand(band_i + 1).WriteArray(band_array)
+                    out_scene.GetRasterBand(band_i + 1).WriteArray(np.rot90(scene_array[band_i], rot_k))
                 out_scene = None
 
                 if ignore_masks is False:
@@ -238,10 +229,7 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
                                              1, gdal.GDT_UInt16)
                     out_mask.SetGeoTransform(geo_transform)
                     out_mask.SetProjection(projection)
-                    mask_to_write = mask_array
-                    if rot_k > 0:
-                        mask_to_write = np.rot90(mask_array, rot_k)
-                    out_mask.GetRasterBand(1).WriteArray(mask_to_write)
+                    out_mask.GetRasterBand(1).WriteArray(np.rot90(mask_array, rot_k))
                     out_mask = None
 
 

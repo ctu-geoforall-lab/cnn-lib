@@ -54,14 +54,15 @@ def run(data_dir, model, in_weights_path, input_regex='*.tif',
             tf.keras.utils.set_random_seed(seed)
 
     model = create_model(model, len(id2code), nr_bands, tensor_shape,
-                         backbone=backbone, verbose=1)
+                         backbone=backbone, padding_mode=padding_mode,
+                         mask_ignore_value=mask_ignore_value, verbose=1)
 
     # val generator used for both the training and the detection
     val_generator = AugmentGenerator(
         data_dir, input_regex, batch_size, 'val', tensor_shape, force_dataset_generation,
         fit_memory, val_set_pct=val_set_pct, filter_by_class=filter_by_class,
         ignore_masks=ignore_masks, padding_mode=padding_mode,
-    mask_ignore_value=mask_ignore_value)
+        mask_ignore_value=mask_ignore_value)
 
     # load weights
     model.load_weights(in_weights_path)

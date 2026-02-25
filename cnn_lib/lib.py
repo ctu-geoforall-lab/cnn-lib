@@ -315,13 +315,15 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5, beta=0.5, w
         pixel_has_class = tf.reduce_sum(ground_truth_onehot, axis=-1)
         valid_mask = tf.cast(pixel_has_class > 0, tf.float32)
         valid_mask = tf.expand_dims(valid_mask, axis=-1)
+        # compute true positives, false negatives and false positives
+        true_pos = ground_truth_onehot * predictions * valid_mask
+        false_neg = ground_truth_onehot * (1 - predictions) * valid_mask
+        false_pos = (1 - ground_truth_onehot) * predictions * valid_mask
     else:
-        valid_mask = 1
-
-    # compute true positives, false negatives and false positives
-    true_pos = ground_truth_onehot * predictions * valid_mask
-    false_neg = ground_truth_onehot * (1 - predictions) * valid_mask
-    false_pos = (1 - ground_truth_onehot) * predictions * valid_mask
+        # compute true positives, false negatives and false positives
+        true_pos = ground_truth_onehot * predictions
+        false_neg = ground_truth_onehot * (1 - predictions)
+        false_pos = (1 - ground_truth_onehot) * predictions
 
     # compute Tversky coefficient
     numerator = tf.reduce_sum(true_pos, axis=(1, 2))

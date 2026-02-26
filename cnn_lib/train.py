@@ -49,8 +49,7 @@ def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
         model, len(id2code), nr_bands, tensor_shape, loss=loss_function,
         alpha=tversky_alpha, beta=tversky_beta,
         dropout_rate_input=dropout_rate_input,
-        dropout_rate_hidden=dropout_rate_hidden, backbone=backbone, name=name,
-        padding_mode=padding_mode, mask_ignore_value=mask_ignore_value)
+        dropout_rate_hidden=dropout_rate_hidden, backbone=backbone, name=name)
 
     # val generator used for both the training and the detection
     val_generator = AugmentGenerator(

@@ -268,7 +268,7 @@ class AugmentGenerator:
 
 # loss functions
 
-def categorical_dice(ground_truth_onehot, predictions, weights=1, ignore_class=None):
+def categorical_dice(ground_truth_onehot, predictions, weights=1):
     """Compute the Sorensen-Dice loss.
 
     :param ground_truth_onehot: onehot ground truth labels
@@ -282,12 +282,12 @@ def categorical_dice(ground_truth_onehot, predictions, weights=1, ignore_class=N
     :return: dice loss value averaged for all classes
     """
     loss = categorical_tversky(ground_truth_onehot, predictions, 0.5, 0.5,
-                               weights, ignore_class=ignore_class)
+                               weights)
 
     return loss
 
 
-def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5, beta=0.5, weights=1, ignore_class=None):
+def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5, beta=0.5, weights=1):
     """Compute the Tversky loss.
 
     alpha == beta == 0.5 -> Dice loss
@@ -301,29 +301,20 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5, beta=0.5, w
     :param beta: magnitude of penalties for false negatives
     :param weights: weights for individual classes
         (number-of-classes-long vector)
-    :param ignore_class: class index to ignore (e.g., 255 for padded regions).
-        If None, no pixels are ignored.
     :return: dice loss value averaged for all classes
     """
     weight_tensor = tf.constant(weights, dtype=tf.float32)
     predictions = tf.cast(predictions, tf.float32, name='tversky_cast_pred')
     ground_truth_onehot = tf.cast(ground_truth_onehot, tf.float32, name='tversky_cast_gt')
 
-    # if ignore class (for padding)
-    if ignore_class is not None:
-        # indices of ground truth classes
-        pixel_has_class = tf.reduce_sum(ground_truth_onehot, axis=-1)
-        valid_mask = tf.cast(pixel_has_class > 0, tf.float32)
-        valid_mask = tf.expand_dims(valid_mask, axis=-1)
-        # compute true positives, false negatives and false positives
-        true_pos = ground_truth_onehot * predictions * valid_mask
-        false_neg = ground_truth_onehot * (1 - predictions) * valid_mask
-        false_pos = (1 - ground_truth_onehot) * predictions * valid_mask
-    else:
-        # compute true positives, false negatives and false positives
-        true_pos = ground_truth_onehot * predictions
-        false_neg = ground_truth_onehot * (1 - predictions)
-        false_pos = (1 - ground_truth_onehot) * predictions
+    # indices of ground truth classes
+    pixel_has_class = tf.reduce_sum(ground_truth_onehot, axis=-1)
+    valid_mask = tf.cast(pixel_has_class > 0, tf.float32)
+    valid_mask = tf.expand_dims(valid_mask, axis=-1)
+    # compute true positives, false negatives and false positives
+    true_pos = ground_truth_onehot * predictions * valid_mask
+    false_neg = ground_truth_onehot * (1 - predictions) * valid_mask
+    false_pos = (1 - ground_truth_onehot) * predictions * valid_mask
 
     # compute Tversky coefficient
     numerator = tf.reduce_sum(true_pos, axis=(1, 2))

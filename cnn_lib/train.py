@@ -65,8 +65,7 @@ def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
 
     train_generator = AugmentGenerator(
         data_dir, input_regex, batch_size, 'train', tensor_shape,
-        force_dataset_generation, fit_memory, augment=augment,
-        val_set_pct=val_set_pct, filter_by_class=filter_by_class,
+        False, fit_memory, augment=augment,
         padding_mode=padding_mode, mask_ignore_value=mask_ignore_value,
         verbose=verbose)
 

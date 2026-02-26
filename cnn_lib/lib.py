@@ -277,8 +277,6 @@ def categorical_dice(ground_truth_onehot, predictions, weights=1):
         (batch_size, img_height, img_width, nr_classes)
     :param weights: weights for individual classes
         (number-of-classes-long vector)
-    :param ignore_class: class index to ignore (e.g., 255 for padded regions).
-        If None, no pixels are ignored.
     :return: dice loss value averaged for all classes
     """
     loss = categorical_tversky(ground_truth_onehot, predictions, 0.5, 0.5,

@@ -79,12 +79,18 @@ if __name__ == '__main__':
     parser.add_argument(
         '--padding_mode', type=str, default=None,
         choices=('constant', 'reflect', 'symmetric'),
-        help='Padding mode for edge tiles ("reflect", "symmetric", "constant"), '
-             'or None for no padding (shift window behavior).')
-
+        help='Padding mode for edge tiles when the image dimensions are not '
+             'divisible by tensor_shape. If None (default), a shift window '
+             'approach is used instead, where edge tiles overlap with their '
+             'neighbors to avoid partial tiles.')
     parser.add_argument(
         '--mask_ignore_value', type=int, default=255,
-        help='ONLY FOR PADDING: Label value for padded mask regions (default 255)')
+        help='Label value assigned to padded regions in mask tiles '
+             '(default: 255). Only relevant when padding_mode is set. '
+             'Must not overlap with any valid class label defined in '
+             'label_colors.txt, as the loss function relies on unrecognized '
+             'pixel values producing all-zero one-hot encodings to exclude '
+             'padded pixels from loss computation.')
 
     args = parser.parse_args()
 
@@ -96,10 +102,7 @@ if __name__ == '__main__':
         raise parser.error(
             'Argument validation_set_percentage must be greater or equal to 0 '
             'and smaller than 1')
-    if args.padding_mode is None and 'mask_ignore_value' in sys.argv:
-        raise parser.error(
-            'mask_ignore_value can only be set if padding_mode is not None'
-        )
+
     from cnn_lib.detect import run
 
     run(args.data_dir, args.model, args.weights_path, args.input_regex,

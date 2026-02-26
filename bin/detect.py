@@ -9,10 +9,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 if not '--help' in sys.argv and not '-h' in sys.argv:
     # in order to skip the slow import of tensorflow if not needed
     import cnn_lib.utils as utils
+
     bool_ = utils.str2bool
 else:
     bool_ = bool
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run detection')
@@ -76,6 +76,21 @@ if __name__ == '__main__':
         '--ignore_masks', type=bool_, default=False,
         help='Boolean to decide if computing also average statstics based on '
              'grand truth data or running only the prediction')
+    parser.add_argument(
+        '--padding_mode', type=str, default=None,
+        choices=('constant', 'reflect', 'symmetric'),
+        help='Padding mode for edge tiles when the image dimensions are not '
+             'divisible by tensor_shape. If None (default), a shift window '
+             'approach is used instead, where edge tiles overlap with their '
+             'neighbors to avoid partial tiles.')
+    parser.add_argument(
+        '--mask_ignore_value', type=int, default=255,
+        help='Label value assigned to padded regions in mask tiles '
+             '(default: 255). Only relevant when padding_mode is set. '
+             'Must not overlap with any valid class label defined in '
+             'label_colors.txt, as the loss function relies on unrecognized '
+             'pixel values producing all-zero one-hot encodings to exclude '
+             'padded pixels from loss computation.')
 
     args = parser.parse_args()
 
@@ -94,4 +109,5 @@ if __name__ == '__main__':
         args.visualization_path, args.batch_size, args.seed,
         (args.tensor_height, args.tensor_width), args.force_dataset_generation,
         args.fit_dataset_in_memory, args.validation_set_percentage,
-        args.filter_by_classes, args.backbone, args.ignore_masks)
+        args.filter_by_classes, args.backbone, args.ignore_masks,
+        args.padding_mode, args.mask_ignore_value)

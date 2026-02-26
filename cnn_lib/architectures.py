@@ -1353,7 +1353,6 @@ def create_model(model, nr_classes, nr_bands, tensor_shape,
         loss = categorical_dice
     elif loss == 'tversky':
         loss = lambda gt, p: categorical_tversky(gt, p, alpha, beta)
-
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
     model.build(input_shape=(None, tensor_shape[0], tensor_shape[1], nr_bands))
 

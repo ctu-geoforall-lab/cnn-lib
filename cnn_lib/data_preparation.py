@@ -94,11 +94,8 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
     cols_step = tensor_shape[1]
 
     # do we filter by classes?
-    if filter_by_class is None:
-        filt = False
-    else:
+    if filter_by_class is not None:
         filter_by_class = [int(i) for i in filter_by_class.split(',')]
-        filt = True
 
     # the following variables are defined here to avoid creating them in the
     # loop later
@@ -166,7 +163,7 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
                     bottom_pad = rows_step - actual_rows
 
             # if filtering, check if it makes sense to continue
-            if filt is True and ignore_masks is False:
+            if filter_by_class is not None and ignore_masks is False:
                 labels_cropped = labels_np[j:j + actual_rows, i:i + actual_cols]
                 if not np.isin(labels_cropped, filter_by_class).any():
                     # no occurrence of classes to filter by - continue with

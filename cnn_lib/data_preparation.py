@@ -129,6 +129,11 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
 
     scene_dir, scene_name = os.path.split(scene_path[:-10])
 
+    actual_cols = cols_step
+    right_pad = 0
+    actual_rows = rows_step
+    bottom_pad = 0
+
     for i in range(0, nr_cols, cols_step):
         if padding_mode is None:
             # shift window
@@ -136,17 +141,12 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
             # avoid pixels outside the image
             if i + cols_step > nr_cols:
                 i = nr_cols - cols_step
-            actual_cols = cols_step
-            right_pad = 0
 
         else:
             # crop what is available and add padding if needed
             if i + cols_step > nr_cols:
                 actual_cols = nr_cols - i
                 right_pad = cols_step - actual_cols
-            else:
-                actual_cols = cols_step
-                right_pad = 0
 
         for j in range(0, nr_rows, rows_step):
             if padding_mode is None:
@@ -155,16 +155,12 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
                 # avoid pixels outside the image
                 if j + rows_step > nr_rows:
                     j = nr_rows - rows_step
-                actual_rows = rows_step
-                bottom_pad = 0
+
             else:
                 # crop what is available and add padding if needed
                 if j + rows_step > nr_rows:
                     actual_rows = nr_rows - j
                     bottom_pad = rows_step - actual_rows
-                else:
-                    actual_rows = rows_step
-                    bottom_pad = 0
 
             # if filtering, check if it makes sense to continue
             if filt is True and ignore_masks is False:

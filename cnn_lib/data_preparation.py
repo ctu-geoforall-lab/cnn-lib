@@ -70,7 +70,7 @@ def generate_dataset_structure(data_dir, input_regex, tensor_shape=(256, 256),
 
 
 def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
-         augment=True, dir_names=None, ignore_masks=False, padding_mode=None, mask_ignore_value=255 ):
+         augment=True, dir_names=None, ignore_masks=False, padding_mode=None, mask_ignore_value=255):
     """Tile the big scene into smaller samples and write them.
 
     If filter_by_class is not None, only samples containing at least one of
@@ -129,12 +129,9 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
 
     scene_dir, scene_name = os.path.split(scene_path[:-10])
 
-    actual_cols = cols_step
-    right_pad = 0
-    actual_rows = rows_step
-    bottom_pad = 0
-
     for i in range(0, nr_cols, cols_step):
+        actual_cols = cols_step
+        right_pad = 0
         if padding_mode is None:
             # shift window
             # if reaching the end of the image, expand the window back to
@@ -149,6 +146,8 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
                 right_pad = cols_step - actual_cols
 
         for j in range(0, nr_rows, rows_step):
+            actual_rows = rows_step
+            bottom_pad = 0
             if padding_mode is None:
                 # shift window
                 # if reaching the end of the image, expand the window back to

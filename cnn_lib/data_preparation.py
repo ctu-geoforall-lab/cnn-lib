@@ -189,10 +189,7 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
             geo_transform[3] = raw_geo[3] + j * raw_geo[5]
 
             if ignore_masks is False:
-                mask_src = gdal.Open(labels_path, gdal.GA_ReadOnly)
-                mask_array = mask_src.GetRasterBand(1).ReadAsArray(
-                    i, j, actual_cols, actual_rows)
-                mask_src = None
+                mask_array = labels_np[j:j + actual_rows, i:i + actual_cols]
                 if pad_needed:
                     mask_array = np.pad(mask_array, ((0, bottom_pad), (0, right_pad)), mode='constant', constant_values=mask_ignore_value)
             else:

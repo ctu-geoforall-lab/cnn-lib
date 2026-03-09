@@ -129,6 +129,10 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
 
     scene_dir, scene_name = os.path.split(scene_path[:-10])
 
+    scene_src = gdal.Open(scene_path, gdal.GA_ReadOnly)
+    raw_geo = scene_src.GetGeoTransform()
+    scene_src = None
+
     for i in range(0, nr_cols, cols_step):
         actual_cols = cols_step
         right_pad = 0
@@ -175,13 +179,12 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
             # check if padding is needed
             pad_needed = right_pad>0 or bottom_pad>0
 
-            scene_src = gdal.Open(scene_path, gdal.GA_ReadOnly)
-            raw_geo = scene_src.GetGeoTransform()
             # read all bands at once as a (bands, rows, cols) array
+            scene_src = gdal.Open(scene_path, gdal.GA_ReadOnly)
             scene_array = scene_src.ReadAsArray(i, j, actual_cols, actual_rows)
+            scene_src = None
             if pad_needed:
                 scene_array = np.pad(scene_array, ((0, 0), (0, bottom_pad), (0, right_pad)), mode=padding_mode)
-            scene_src = None
 
             geo_transform = list(raw_geo)
             geo_transform[0] = raw_geo[0] + i * raw_geo[1]

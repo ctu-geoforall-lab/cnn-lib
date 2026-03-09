@@ -101,6 +101,8 @@ usage: train.py [-h] [--operation {train,fine-tune}] --data_dir DATA_DIR
                 [--dropout_rate_hidden DROPOUT_RATE_HIDDEN]
                 [--validation_set_percentage VALIDATION_SET_PERCENTAGE]
                 [--filter_by_classes FILTER_BY_CLASSES]
+                [--padding_mode {reflect,symmetric,edge,constant}] 
+                [--mask_ignore_value MASK_IGNORE_VALUE]
                 [--backbone {ResNet50,ResNet101,ResNet152,VGG16}]
 
 Run training or fine-tuning
@@ -177,6 +179,20 @@ optional arguments:
                         them will be created. If filtering by multiple
                         classes, specify their values comma-separated (e.g.
                         "1,2,6" to filter by classes 1, 2 and 6)
+  --padding_mode {reflect,symmetric,edge,constant}
+                        Padding mode for edge tiles when the image dimensions
+                        are not divisible by tensor_shape. If None (default),
+                        a shift window approach is used instead, where edge
+                        tiles overlap with their neighbors to avoid partial
+                        tiles.
+  --mask_ignore_value MASK_IGNORE_VALUE
+                        Label value assigned to padded regions in mask tiles
+                        (default: 255). Only relevant when padding_mode is
+                        set. Must not overlap with any valid class label
+                        defined in label_colors.txt, as the loss function
+                        relies on unrecognized pixel values producing all-zero
+                        one-hot encodings to exclude padded pixels from loss
+                        computation.
   --backbone {ResNet50,ResNet101,ResNet152,VGG16}
                         Backbone architecture
 ```
@@ -202,6 +218,8 @@ usage: detect.py [-h] --data_dir DATA_DIR [--model {U-Net,SegNet,DeepLab,FCN}]
                  [--fit_dataset_in_memory FIT_DATASET_IN_MEMORY]
                  [--validation_set_percentage VALIDATION_SET_PERCENTAGE]
                  [--filter_by_classes FILTER_BY_CLASSES]
+                 [--padding_mode {reflect,symmetric,edge,constant}] 
+                 [--mask_ignore_value MASK_IGNORE_VALUE]
                  [--backbone {ResNet50,ResNet101,ResNet152,VGG16}]
                  [--ignore_masks IGNORE_MASKS]
 
@@ -246,6 +264,20 @@ optional arguments:
                         them will be created. If filtering by multiple
                         classes, specify their values comma-separated (e.g.
                         "1,2,6" to filter by classes 1, 2 and 6)
+  --padding_mode {reflect,symmetric,edge,constant}
+                        Padding mode for edge tiles when the image dimensions
+                        are not divisible by tensor_shape. If None (default),
+                        a shift window approach is used instead, where edge
+                        tiles overlap with their neighbors to avoid partial
+                        tiles.
+  --mask_ignore_value MASK_IGNORE_VALUE
+                        Label value assigned to padded regions in mask tiles
+                        (default: 255). Only relevant when padding_mode is
+                        set. Must not overlap with any valid class label
+                        defined in label_colors.txt, as the loss function
+                        relies on unrecognized pixel values producing all-zero
+                        one-hot encodings to exclude padded pixels from loss
+                        computation.
   --backbone {ResNet50,ResNet101,ResNet152,VGG16}
                         Backbone architecture
   --ignore_masks IGNORE_MASKS

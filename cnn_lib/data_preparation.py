@@ -175,15 +175,11 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
 
             # CROPPING SECTION
 
-
-            # check if padding is needed
-            pad_needed = right_pad>0 or bottom_pad>0
-
             # read all bands at once as a (bands, rows, cols) array
             scene_src = gdal.Open(scene_path, gdal.GA_ReadOnly)
             scene_array = scene_src.ReadAsArray(i, j, actual_cols, actual_rows)
             scene_src = None
-            if pad_needed:
+            if right_pad > 0 or bottom_pad > 0:
                 scene_array = np.pad(scene_array, ((0, 0), (0, bottom_pad), (0, right_pad)), mode=padding_mode)
 
             geo_transform = list(raw_geo)
@@ -192,7 +188,7 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
 
             if ignore_masks is False:
                 mask_array = labels_np[j:j + actual_rows, i:i + actual_cols]
-                if pad_needed:
+                if right_pad > 0 or bottom_pad > 0:
                     mask_array = np.pad(mask_array, ((0, bottom_pad), (0, right_pad)), mode='constant', constant_values=mask_ignore_value)
             else:
                 mask_array = None

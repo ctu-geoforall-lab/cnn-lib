@@ -112,9 +112,9 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
     scene = None
 
     if cols_step == rows_step:
-        rotations = (1, 2, 3)
+        rotations = (0, 1, 2, 3) if augment else (0,)
     else:
-        rotations = (2, )
+        rotations = (0, 2) if augment else (0,)
 
     # do not write aux.xml files
     os.environ['GDAL_PAM_ENABLED'] = 'NO'
@@ -198,9 +198,7 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
             else:
                 mask_array = None
 
-            # unified loop over original + rotations
-            all_rotations = [0] + list(rotations) if augment else [0]
-            for rot_k in all_rotations:
+            for rot_k in rotations:
                 dir_name = next(dir_names)
                 suffix = f'_rot{rot_k * 90}' if rot_k > 0 else ''
 

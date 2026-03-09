@@ -69,16 +69,8 @@ if __name__ == '__main__':
              'If filtering by multiple classes, specify their values '
              'comma-separated (e.g. "1,2,6" to filter by classes 1, 2 and 6)')
     parser.add_argument(
-        '--backbone', type=str, default=None,
-        choices=('ResNet50', 'ResNet101', 'ResNet152', 'VGG16'),
-        help='Backbone architecture')
-    parser.add_argument(
-        '--ignore_masks', type=bool_, default=False,
-        help='Boolean to decide if computing also average statstics based on '
-             'grand truth data or running only the prediction')
-    parser.add_argument(
         '--padding_mode', type=str, default=None,
-        choices=('constant', 'reflect', 'symmetric'),
+        choices=('reflect', 'symmetric', 'edge', 'constant'),
         help='Padding mode for edge tiles when the image dimensions are not '
              'divisible by tensor_shape. If None (default), a shift window '
              'approach is used instead, where edge tiles overlap with their '
@@ -91,6 +83,14 @@ if __name__ == '__main__':
              'label_colors.txt, as the loss function relies on unrecognized '
              'pixel values producing all-zero one-hot encodings to exclude '
              'padded pixels from loss computation.')
+    parser.add_argument(
+        '--backbone', type=str, default=None,
+        choices=('ResNet50', 'ResNet101', 'ResNet152', 'VGG16'),
+        help='Backbone architecture')
+    parser.add_argument(
+        '--ignore_masks', type=bool_, default=False,
+        help='Boolean to decide if computing also average statstics based on '
+             'grand truth data or running only the prediction')
 
     args = parser.parse_args()
 
@@ -109,5 +109,5 @@ if __name__ == '__main__':
         args.visualization_path, args.batch_size, args.seed,
         (args.tensor_height, args.tensor_width), args.force_dataset_generation,
         args.fit_dataset_in_memory, args.validation_set_percentage,
-        args.filter_by_classes, args.backbone, args.ignore_masks,
-        args.padding_mode, args.mask_ignore_value)
+        args.filter_by_classes, args.padding_mode, args.mask_ignore_value,
+        args.backbone, args.ignore_masks)

@@ -66,7 +66,7 @@ def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
                 model.layers[-1].trainable = True
             else:
                 model.set_layers_trainable(False, frozen_layer_groups)
-                model.compile(
+            model.compile(
                     optimizer=model.optimizer,
                     loss=model.loss,
                     metrics=model.compiled_metrics._metrics)

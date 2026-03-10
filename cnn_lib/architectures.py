@@ -160,6 +160,21 @@ class _BaseModel(Model, ABC):
         """
         return super(_BaseModel, self).get_config()
 
+    def set_layers_trainable(self, trainable, patterns=None):
+        """Set layers trainable or frozen by name pattern, or all layers if none given.
+
+        Call model.compile() afterwards to re-register trainable variables
+        with Keras.
+
+        :param trainable: True to unfreeze, False to freeze.
+        :param patterns: list of substrings to match against layer names
+            (case-insensitive). E.g. ['downsampling_block0', 'middle_block'].
+            If None or empty, all layers are affected.
+        """
+        for layer in self.layers:
+            if patterns is None or any(p.lower() in layer.name.lower()
+                                       for p in patterns):
+                layer.trainable = trainable
 
 class UNet(_BaseModel):
     """U-Net architecture.

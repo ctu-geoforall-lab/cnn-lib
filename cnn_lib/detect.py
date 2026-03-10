@@ -19,8 +19,9 @@ from cnn_lib.cnn_exceptions import DatasetError
 def run(data_dir, model, in_weights_path, input_regex='*.tif',
         visualization_path='/tmp', batch_size=1, seed=1,
         tensor_shape=(256, 256), force_dataset_generation=False,
-        fit_memory=False, val_set_pct=1, filter_by_class=None, backbone=None,
-        ignore_masks=False, padding_mode=None, mask_ignore_value=255):
+        fit_memory=False, val_set_pct=1, filter_by_class=None,
+        padding_mode=None, mask_ignore_value=255, backbone=None,
+        ignore_masks=False):
     utils.print_device_info()
 
     # get nr of bands

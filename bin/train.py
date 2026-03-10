@@ -123,6 +123,21 @@ if __name__ == '__main__':
         '--backbone', type=str, default=None,
         choices=('ResNet50', 'ResNet101', 'ResNet152', 'VGG16'),
         help='Backbone architecture')
+    parser.add_argument(
+        '--frozen_layer_groups', type=str, default=None,
+        help='ONLY FOR OPERATION == FINE-TUNE: Comma-separated list of '
+             'layer-name patterns to freeze after loading donor weights. '
+             'Substring matching is used, so "downsampling_block0" freezes '
+             'all layers whose name contains that string. '
+             'Pass "all" to freeze the entire backbone and train only the '
+             'classifier head. '
+             'E.g. "downsampling_block0,downsampling_block1"')
+    parser.add_argument(
+        '--skip_mismatch', type=bool_, default=True,
+        help='ONLY FOR OPERATION == FINE-TUNE: Skip layers whose weight '
+             'shapes differ from the donor checkpoint (default True). '
+             'Useful when the number of bands or classes changed between '
+             'the donor and target datasets.')
 
     args = parser.parse_args()
 
@@ -145,6 +160,11 @@ if __name__ == '__main__':
             'Argument validation_set_percentage must be greater or equal to '
             '0 and smaller or equal than 1')
 
+    frozen_layer_groups = None
+    if args.frozen_layer_groups:
+        frozen_layer_groups = [g.strip()
+                               for g in args.frozen_layer_groups.split(',')]
+
     from cnn_lib.train import run
 
     run(args.operation, args.data_dir, args.output_dir, args.model,
@@ -156,4 +176,5 @@ if __name__ == '__main__':
         args.augment_training_dataset, args.tversky_alpha,
         args.tversky_beta, args.dropout_rate_input,
         args.dropout_rate_hidden, args.validation_set_percentage,
-        args.filter_by_classes, args.backbone)
+        args.filter_by_classes, args.backbone,
+        frozen_layer_groups=frozen_layer_groups, skip_mismatch=args.skip_mismatch)

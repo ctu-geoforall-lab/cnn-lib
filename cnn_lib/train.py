@@ -21,7 +21,8 @@ def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
         initial_epoch=0, batch_size=1, loss_function='dice', seed=1,
         patience=100, tensor_shape=(256, 256), monitored_value='val_accuracy',
         force_dataset_generation=False, fit_memory=False, augment=False,
-        tversky_alpha=0.5, tversky_beta=0.5, dropout_rate_input=None,
+        padding_mode=None, mask_ignore_value=255, tversky_alpha=0.5,
+        tversky_beta=0.5, dropout_rate_input=None,
         dropout_rate_hidden=None, val_set_pct=0.2, filter_by_class=None,
         backbone=None, name=None, verbose=1):
     if verbose > 0:
@@ -55,6 +56,7 @@ def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
         data_dir, input_regex, batch_size, 'val', tensor_shape,
         force_dataset_generation, fit_memory, augment=augment,
         val_set_pct=val_set_pct, filter_by_class=filter_by_class,
+        padding_mode=padding_mode, mask_ignore_value=mask_ignore_value,
         verbose=verbose)
 
     # load weights if the model is supposed to do so
@@ -62,8 +64,10 @@ def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
         model.load_weights(in_weights_path)
 
     train_generator = AugmentGenerator(
-        data_dir, input_regex, batch_size, 'train', fit_memory=fit_memory,
-        augment=augment)
+        data_dir, input_regex, batch_size, 'train', tensor_shape,
+        False, fit_memory, augment=augment,
+        padding_mode=padding_mode, mask_ignore_value=mask_ignore_value,
+        verbose=verbose)
 
     train(model, train_generator, val_generator, id2code, batch_size,
           output_dir, visualization_path, model_fn, nr_epochs,

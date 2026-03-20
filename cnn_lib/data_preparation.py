@@ -147,7 +147,8 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
             # read all bands at once as a (bands, rows, cols) array
             scene_array = scene_src.ReadAsArray(i, j, actual_cols, actual_rows)
             if right_pad > 0 or bottom_pad > 0:
-                scene_array = np.pad(scene_array, ((0, 0), (0, bottom_pad), (0, right_pad)), mode=padding_mode)
+                scene_array = np.pad(scene_array, ((0, 0), (0, bottom_pad), (0, right_pad)),
+                                     mode=padding_mode)
 
             geo_transform[0] = raw_geo[0] + i * raw_geo[1]
             geo_transform[3] = raw_geo[3] + j * raw_geo[5]
@@ -155,7 +156,8 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
             if ignore_masks is False:
                 mask_array = labels_np[j:j + actual_rows, i:i + actual_cols]
                 if right_pad > 0 or bottom_pad > 0:
-                    mask_array = np.pad(mask_array, ((0, bottom_pad), (0, right_pad)), mode='constant', constant_values=mask_ignore_value)
+                    mask_array = np.pad(mask_array, ((0, bottom_pad), (0, right_pad)),
+                                        mode='constant', constant_values=mask_ignore_value)
             else:
                 mask_array = None
 

@@ -102,6 +102,8 @@ usage: train.py [-h] [--operation {train,fine-tune}] --data_dir DATA_DIR
                 [--validation_set_percentage VALIDATION_SET_PERCENTAGE]
                 [--filter_by_classes FILTER_BY_CLASSES]
                 [--backbone {ResNet50,ResNet101,ResNet152,VGG16}]
+                [--frozen_layer_groups FROZEN_LAYER_GROUPS]
+                [--skip_mismatch SKIP_MISMATCH]
 
 Run training or fine-tuning
 
@@ -179,6 +181,19 @@ optional arguments:
                         "1,2,6" to filter by classes 1, 2 and 6)
   --backbone {ResNet50,ResNet101,ResNet152,VGG16}
                         Backbone architecture
+  --frozen_layer_groups FROZEN_LAYER_GROUPS
+                        ONLY FOR OPERATION == FINE-TUNE: Comma-separated list
+                        of layer-name patterns to freeze after loading donor
+                        weights. Substring matching is used, so
+                        "downsampling_block0" freezes all layers whose name
+                        contains that string. Pass "all" to freeze the entire
+                        backbone and train only the classifier head.
+                        E.g. "downsampling_block0,downsampling_block1"
+  --skip_mismatch SKIP_MISMATCH
+                        ONLY FOR OPERATION == FINE-TUNE: Skip layers whose
+                        weight shapes differ from the donor checkpoint
+                        (default True). Useful when the number of bands or
+                        classes changed between the donor and target datasets.
 ```
 
 ## Detection

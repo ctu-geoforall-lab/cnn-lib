@@ -97,16 +97,16 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
     if filter_by_class is not None:
         filter_by_class = [int(i) for i in filter_by_class.split(',')]
 
-    # the following variables are defined here to avoid creating them in the
-    # loop later
     driver = gdal.GetDriverByName("GTiff")
-    scene = gdal.Open(scene_path, gdal.GA_ReadOnly)
-    nr_bands = scene.RasterCount
-    projection = scene.GetProjection()
-    data_type = scene.GetRasterBand(1).DataType
-    nr_rows = scene.RasterYSize
-    nr_cols = scene.RasterXSize
-    scene = None
+
+    # single open for all scene metadata
+    scene_src = gdal.Open(scene_path, gdal.GA_ReadOnly)
+    nr_bands = scene_src.RasterCount
+    projection = scene_src.GetProjection()
+    data_type = scene_src.GetRasterBand(1).DataType
+    nr_rows = scene_src.RasterYSize
+    nr_cols = scene_src.RasterXSize
+    raw_geo = scene_src.GetGeoTransform()
 
     if cols_step == rows_step:
         rotations = (0, 1, 2, 3) if augment else (0,)
@@ -126,41 +126,13 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
 
     scene_dir, scene_name = os.path.split(scene_path[:-10])
 
-    scene_src = gdal.Open(scene_path, gdal.GA_ReadOnly)
-    raw_geo = scene_src.GetGeoTransform()
-    scene_src = None
+    geo_transform = list(raw_geo)
 
     for i in range(0, nr_cols, cols_step):
-        actual_cols = cols_step
-        right_pad = 0
-        if padding_mode is None:
-            # shift window
-            # if reaching the end of the image, expand the window back to
-            # avoid pixels outside the image
-            if i + cols_step > nr_cols:
-                i = nr_cols - cols_step
-
-        else:
-            # crop what is available and add padding if needed
-            if i + cols_step > nr_cols:
-                actual_cols = nr_cols - i
-                right_pad = cols_step - actual_cols
+        i, actual_cols, right_pad = _resolve_tile_edge(i, cols_step, nr_cols, padding_mode)
 
         for j in range(0, nr_rows, rows_step):
-            actual_rows = rows_step
-            bottom_pad = 0
-            if padding_mode is None:
-                # shift window
-                # if reaching the end of the image, expand the window back to
-                # avoid pixels outside the image
-                if j + rows_step > nr_rows:
-                    j = nr_rows - rows_step
-
-            else:
-                # crop what is available and add padding if needed
-                if j + rows_step > nr_rows:
-                    actual_rows = nr_rows - j
-                    bottom_pad = rows_step - actual_rows
+            j, actual_rows, bottom_pad = _resolve_tile_edge(j, rows_step, nr_rows, padding_mode)
 
             # if filtering, check if it makes sense to continue
             if filter_by_class is not None and ignore_masks is False:
@@ -173,13 +145,10 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
             # CROPPING SECTION
 
             # read all bands at once as a (bands, rows, cols) array
-            scene_src = gdal.Open(scene_path, gdal.GA_ReadOnly)
             scene_array = scene_src.ReadAsArray(i, j, actual_cols, actual_rows)
-            scene_src = None
             if right_pad > 0 or bottom_pad > 0:
                 scene_array = np.pad(scene_array, ((0, 0), (0, bottom_pad), (0, right_pad)), mode=padding_mode)
 
-            geo_transform = list(raw_geo)
             geo_transform[0] = raw_geo[0] + i * raw_geo[1]
             geo_transform[3] = raw_geo[3] + j * raw_geo[5]
 
@@ -217,6 +186,18 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
                     out_mask.SetProjection(projection)
                     out_mask.GetRasterBand(1).WriteArray(np.rot90(mask_array, rot_k))
                     out_mask = None
+    scene_src = None
+
+
+def _resolve_tile_edge(pos, step, max_size, padding_mode):
+    if padding_mode is None:
+        if pos + step > max_size:
+            pos = max_size - step
+        return pos, step, 0
+    else:
+        actual = min(step, max_size - pos)
+        pad = step - actual
+        return pos, actual, pad
 
 
 def train_val_determination(pct):

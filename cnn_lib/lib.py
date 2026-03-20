@@ -354,7 +354,7 @@ def masked_crossentropy(ground_truth_onehot, predictions, binary=False):
 
     per_pixel_loss = loss_fn(ground_truth_onehot, predictions)
     masked_loss = per_pixel_loss * valid_mask
-    loss = tf.reduce_sum(masked_loss) / (tf.reduce_sum(valid_mask) + 1e-7)
+    loss = tf.reduce_sum(masked_loss) / tf.reduce_sum(valid_mask)
 
     return loss
 

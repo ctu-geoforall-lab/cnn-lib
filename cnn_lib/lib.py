@@ -328,6 +328,36 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5, beta=0.5, w
 
     return loss
 
+def masked_crossentropy(ground_truth_onehot, predictions, binary=False):
+    """Crossentropy loss that ignores padded pixels.
+
+    Padded pixels are identified by their all-zero one-hot encoding.
+    Those pixels are excluded from the loss computation.
+
+    :param ground_truth_onehot: onehot ground truth labels
+        (batch_size, img_height, img_width, nr_classes)
+    :param predictions: predictions from the last layer of the CNN
+        (batch_size, img_height, img_width, nr_classes)
+    :param binary: if True, use binary crossentropy, otherwise categorical
+    :return: mean crossentropy loss over valid pixels only
+    """
+    ground_truth_onehot = tf.cast(ground_truth_onehot, tf.float32, name='crossentropy_cast_gt')
+    predictions = tf.cast(predictions, tf.float32, name='crossentropy_cast_pred')
+
+    # indices of ground truth classes
+    pixel_has_class = tf.reduce_sum(ground_truth_onehot, axis=-1)
+    valid_mask = tf.cast(pixel_has_class > 0, tf.float32)
+    if binary:
+        loss_fn = tf.keras.losses.binary_crossentropy
+    else:
+        loss_fn = tf.keras.losses.categorical_crossentropy
+
+    per_pixel_loss = loss_fn(ground_truth_onehot, predictions)
+    masked_loss = per_pixel_loss * valid_mask
+    loss = tf.reduce_sum(masked_loss) / (tf.reduce_sum(valid_mask) + 1e-7)
+
+    return loss
+
 
 # objects to be used in the architectures
 

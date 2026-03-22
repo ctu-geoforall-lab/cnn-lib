@@ -22,7 +22,7 @@ class AugmentGenerator:
     def __init__(self, data_dir, input_regex, batch_size=5, operation='train',
                  tensor_shape=(256, 256), force_dataset_generation=False,
                  fit_memory=False, augment=False, onehot_encode=True,
-                 val_set_pct=0.2, filter_by_class=None, ignore_masks=False,
+                 val_set_pct=0.2, filter_by_class=None, ignore_masks=False, padding_mode=None, mask_ignore_value=255,
                  verbose=1):
         """Initialize the generator.
 
@@ -44,6 +44,9 @@ class AugmentGenerator:
             generation - if specified, only samples containing at least one of
             them will be created)
         :param ignore_masks: do not create nor return masks
+        :param padding_mode: padding mode for edge tiles ('reflect', 'symmetric',
+        'edge', 'constant', or None for no padding - shift window behavior)
+        :param mask_ignore_value: label value for padded mask regions (default 255)
         :param verbose: verbosity (0=quiet, >0 verbose)
         """
         if operation not in ('train', 'val'):
@@ -66,7 +69,7 @@ class AugmentGenerator:
         if force_dataset_generation is True or all(do_exist) is False:
             generate_dataset_structure(data_dir, input_regex, tensor_shape,
                                        val_set_pct, filter_by_class, augment,
-                                       ignore_masks, verbose=verbose)
+                                       ignore_masks, padding_mode, mask_ignore_value, verbose=verbose)
 
         # create variables useful throughout the entire class
         self.nr_samples = len(os.listdir(images_dir))
@@ -282,8 +285,7 @@ def categorical_dice(ground_truth_onehot, predictions, weights=1):
     return loss
 
 
-def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5,
-                        beta=0.5, weights=1):
+def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5, beta=0.5, weights=1):
     """Compute the Tversky loss.
 
     alpha == beta == 0.5 -> Dice loss
@@ -303,14 +305,17 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5,
     predictions = tf.cast(predictions, tf.float32, name='tversky_cast_pred')
     ground_truth_onehot = tf.cast(ground_truth_onehot, tf.float32, name='tversky_cast_gt')
 
+    # indices of ground truth classes
+    pixel_has_class = tf.reduce_sum(ground_truth_onehot, axis=-1)
+    valid_mask = tf.cast(pixel_has_class > 0, tf.float32)
+    valid_mask = tf.expand_dims(valid_mask, axis=-1)
     # compute true positives, false negatives and false positives
-    true_pos = ground_truth_onehot * predictions
-    false_neg = ground_truth_onehot * (1. - predictions)
-    false_pos = (1. - ground_truth_onehot) * predictions
+    true_pos = ground_truth_onehot * predictions * valid_mask
+    false_neg = ground_truth_onehot * (1 - predictions) * valid_mask
+    false_pos = (1 - ground_truth_onehot) * predictions * valid_mask
 
     # compute Tversky coefficient
-    numerator = true_pos
-    numerator = tf.reduce_sum(numerator, axis=(1, 2))
+    numerator = tf.reduce_sum(true_pos, axis=(1, 2))
     denominator = true_pos + alpha * false_neg + beta * false_pos
     denominator = tf.reduce_sum(denominator, axis=(1, 2))
     tversky = numerator / denominator
@@ -320,6 +325,36 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5,
 
     # reduce mean for classes and multiply them by weights
     loss = 1 - tf.reduce_mean(weight_tensor * tversky)
+
+    return loss
+
+def masked_crossentropy(ground_truth_onehot, predictions, binary=False):
+    """Crossentropy loss that ignores padded pixels.
+
+    Padded pixels are identified by their all-zero one-hot encoding.
+    Those pixels are excluded from the loss computation.
+
+    :param ground_truth_onehot: onehot ground truth labels
+        (batch_size, img_height, img_width, nr_classes)
+    :param predictions: predictions from the last layer of the CNN
+        (batch_size, img_height, img_width, nr_classes)
+    :param binary: if True, use binary crossentropy, otherwise categorical
+    :return: mean crossentropy loss over valid pixels only
+    """
+    ground_truth_onehot = tf.cast(ground_truth_onehot, tf.float32, name='crossentropy_cast_gt')
+    predictions = tf.cast(predictions, tf.float32, name='crossentropy_cast_pred')
+
+    # indices of ground truth classes
+    pixel_has_class = tf.reduce_sum(ground_truth_onehot, axis=-1)
+    valid_mask = tf.cast(pixel_has_class > 0, tf.float32)
+    if binary:
+        loss_fn = tf.keras.losses.binary_crossentropy
+    else:
+        loss_fn = tf.keras.losses.categorical_crossentropy
+
+    per_pixel_loss = loss_fn(ground_truth_onehot, predictions)
+    masked_loss = per_pixel_loss * valid_mask
+    loss = tf.reduce_sum(masked_loss) / tf.reduce_sum(valid_mask)
 
     return loss
 

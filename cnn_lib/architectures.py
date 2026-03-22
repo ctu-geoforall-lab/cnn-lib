@@ -8,7 +8,7 @@ from tensorflow.keras.layers import MaxPooling2D, Conv2D, Input, \
 from tensorflow.keras.models import Model
 
 from cnn_lib.lib import ConvBlock, MyMaxPooling, MyMaxUnpooling, \
-    categorical_dice, categorical_tversky, ResBlock, IdentityBlock, ASPP
+    categorical_dice, categorical_tversky, masked_crossentropy, ResBlock, IdentityBlock, ASPP
 from cnn_lib.cnn_exceptions import ModelConfigError
 
 
@@ -1348,11 +1348,15 @@ def create_model(model, nr_classes, nr_bands, tensor_shape,
                                  name=name,
                                  **kwargs)
 
-    # get loss functions corresponding to non-TF losses
+    # get loss functions corresponding to custom losses
     if loss == 'dice':
         loss = categorical_dice
     elif loss == 'tversky':
         loss = lambda gt, p: categorical_tversky(gt, p, alpha, beta)
+    elif loss == 'categorical_crossentropy':
+        loss = masked_crossentropy
+    elif loss == 'binary_crossentropy':
+        loss = lambda gt, p: masked_crossentropy(gt, p, binary=True)
 
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
     model.build(input_shape=(None, tensor_shape[0], tensor_shape[1], nr_bands))

@@ -23,7 +23,7 @@ def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
         force_dataset_generation=False, fit_memory=False, augment=False,
         tversky_alpha=0.5, tversky_beta=0.5, dropout_rate_input=None,
         dropout_rate_hidden=None, val_set_pct=0.2, filter_by_class=None,
-        backbone=None, name=None, verbose=1, frozen_layer_groups=None, skip_mismatch=True):
+        backbone=None, name=None, frozen_layer_groups=None, skip_mismatch=True, verbose=1):
     if verbose > 0:
         utils.print_device_info()
 

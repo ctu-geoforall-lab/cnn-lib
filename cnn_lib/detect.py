@@ -39,7 +39,10 @@ def run(data_dir, model, in_weights_path, input_regex='*.tif',
             search_dir = val_masks_dir
 
         filtered_files = glob.glob(os.path.join(search_dir, f'*{input_regex}*'))
-        labels = [i for i in filtered_files if 'label' in i]
+        if search_dir == data_dir:
+            labels = [i for i in filtered_files if 'label' in i]
+        else:
+            labels = filtered_files
         if len(labels) == 0:
             raise DatasetError('No labels provided in the dataset.')
 

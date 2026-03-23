@@ -25,7 +25,9 @@ def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
         dropout_rate_input=None, dropout_rate_hidden=None,
         val_set_pct=0.2, filter_by_class=None,
         padding_mode=None, mask_ignore_value=255,
-        backbone=None, name=None, verbose=1):
+        backbone=None, name=None, frozen_layer_groups=None, 
+        skip_mismatch=True, verbose=1):
+
     if verbose > 0:
         utils.print_device_info()
 
@@ -62,7 +64,17 @@ def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
 
     # load weights if the model is supposed to do so
     if operation == 'fine-tune':
-        model.load_weights(in_weights_path)
+        model.load_weights(in_weights_path, skip_mismatch=skip_mismatch)
+        if frozen_layer_groups:
+            if frozen_layer_groups == ['all']:
+                model.set_layers_trainable(False)
+                model.layers[-1].trainable = True
+            else:
+                model.set_layers_trainable(False, frozen_layer_groups)
+            model.compile(
+                    optimizer=model.optimizer,
+                    loss=model.loss,
+                    metrics=model.compiled_metrics._metrics)
 
     train_generator = AugmentGenerator(
         data_dir, input_regex, batch_size, 'train', tensor_shape,

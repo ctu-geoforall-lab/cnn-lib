@@ -20,7 +20,6 @@ def main(
     tensor_shape=(256, 256),
     backbone=None,
 ):
-
     # get nr of bands
     nr_bands = utils.get_nr_of_bands(data_dir)
 

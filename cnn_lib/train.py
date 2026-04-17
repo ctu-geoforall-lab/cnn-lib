@@ -53,7 +53,6 @@ def run(
     skip_mismatch=True,
     verbose=1,
 ):
-
     if verbose > 0:
         utils.print_device_info()
 

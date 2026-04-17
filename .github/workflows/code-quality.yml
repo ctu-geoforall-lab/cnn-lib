@@ -1,0 +1,86 @@
+name: Ruff code quality check and automated fix
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "**.py"
+      - ".github/workflows/code-quality.yml"
+      - "ruff.toml"
+  pull_request:
+    paths:
+      - "**.py"
+      - ".github/workflows/code-quality.yml"
+      - "ruff.toml"
+
+jobs:
+  ruff-fix:
+    runs-on: ubuntu-latest
+    if: startsWith(github.head_ref, 'automated-ruff-fixes') == false
+    permissions:
+      # grant GITHUB_TOKEN write permission to create a PR
+      actions: write
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        # TODO: for some reason, it fails with v6 - have to find out why
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Run ruff format and check --fix
+        run: |
+          # create code quality fixes
+          pip install ruff==0.14
+          ruff check . --fix  # it will crash if unfixable naming conventions issues appear
+          ruff format .
+
+      - name: Check write access to repo
+        # just for debugging - if something fails, it is good to see if the issue is not in GH token rights
+        run: |
+          token_login=$(curl -H "Authorization: Bearer ${token}" https://api.github.com/user | jq -r '.login')
+          echo token login is ${token_login}
+          echo $(curl  -H "Authorization: Bearer ${token}" https://api.github.com/repos/${repo}/collaborators/${token_login}/permission) > result
+          cat result | jq  '.permission == "admin" // .permission == "write"' > /dev/null || ( echo "Token does not have write access to ${repo}" >> ${GITHUB_STEP_SUMMARY}; exit 1)
+          curl -sS -f -I -H "Authorization: Bearer ${token}" https://api.github.com | grep 'x-oauth-scopes:' | grep 'repo' > /dev/null && exit 0 || echo "Token does not have repo scope on ${repo}" >> ${GITHUB_STEP_SUMMARY}
+          rm result
+        env:
+          repo: ${{ github.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Pull Request
+        # create a PR with the fixes created above, if any fixes were created
+        id: create-pull-request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: Apply Ruff formatting and fixes
+          title: '[Automated] Apply Ruff formatting fixes to PR #${{ github.event.pull_request.number }}'
+          body: |
+            This is an automated pull request to apply `ruff format`.
+            It fixes formatting issues introduced by PR #${{ github.event.pull_request.number }}.
+          branch: automated-ruff-fixes${{ github.event.pull_request.number }} # name of the new branch to create the PR from
+          base: ${{ steps.vars.outputs.branch-name }} # the base branch to merge into
+          labels: automated-pr
+          reviewers: ${{ github.actor }}
+
+      - name: Send comment to original PR and fail
+        # create a comment in the PR that is reminding the user to merge the automated code quality-fix PR
+        if: ${{ steps.create-pull-request.outputs.pull-request-url && steps.create-pull-request.outputs.pull-request-operation != 'none' }}
+        run: |
+          comment_body="Python formatting issues found. They can be fixed by merging automatically-${{ steps.create-pull-request.outputs.pull-request-operation }} PR #${{ steps.create-pull-request.outputs.pull-request-number }}."
+          curl -s -H "Authorization: token ${token}" -X POST -d "{\"body\": \"${comment_body}\"}" "https://api.github.com/repos/${repo}/issues/${{ github.event.pull_request.number }}/comments"
+          # now fail because attention makes you feel important
+          exit 1
+        env:
+          repo: ${{ github.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+        # TODO: It would be cool to send a different comment if the issues were fixed by the user manually and close the branch manually

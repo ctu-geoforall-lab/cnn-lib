@@ -5,8 +5,11 @@ import math
 
 import tensorflow as tf
 
-from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint, \
-    EarlyStopping
+from tensorflow.keras.callbacks import (
+    TensorBoard,
+    ModelCheckpoint,
+    EarlyStopping,
+)
 
 # imports from this package
 import cnn_lib.utils as utils
@@ -16,17 +19,40 @@ from cnn_lib.architectures import create_model
 from cnn_lib.visualization import write_stats
 
 
-def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
-        in_weights_path=None, visualization_path='/tmp', nr_epochs=1,
-        initial_epoch=0, batch_size=1, loss_function='dice', seed=1,
-        patience=100, tensor_shape=(256, 256), monitored_value='val_accuracy',
-        force_dataset_generation=False, fit_memory=False, augment=False,
-        tversky_alpha=0.5, tversky_beta=0.5,
-        dropout_rate_input=None, dropout_rate_hidden=None,
-        val_set_pct=0.2, filter_by_class=None,
-        padding_mode=None, mask_ignore_value=255,
-        backbone=None, name=None, frozen_layer_groups=None, 
-        skip_mismatch=True, verbose=1):
+def run(
+    operation,
+    data_dir,
+    output_dir,
+    model,
+    model_fn,
+    input_regex='*.tif',
+    in_weights_path=None,
+    visualization_path='/tmp',
+    nr_epochs=1,
+    initial_epoch=0,
+    batch_size=1,
+    loss_function='dice',
+    seed=1,
+    patience=100,
+    tensor_shape=(256, 256),
+    monitored_value='val_accuracy',
+    force_dataset_generation=False,
+    fit_memory=False,
+    augment=False,
+    tversky_alpha=0.5,
+    tversky_beta=0.5,
+    dropout_rate_input=None,
+    dropout_rate_hidden=None,
+    val_set_pct=0.2,
+    filter_by_class=None,
+    padding_mode=None,
+    mask_ignore_value=255,
+    backbone=None,
+    name=None,
+    frozen_layer_groups=None,
+    skip_mismatch=True,
+    verbose=1,
+):
 
     if verbose > 0:
         utils.print_device_info()
@@ -39,7 +65,8 @@ def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
         nr_bands = utils.get_nr_of_bands(train_images_dir, input_regex)
 
     label_codes, label_names, id2code = utils.get_codings(
-        os.path.join(data_dir, 'label_colors.txt'))
+        os.path.join(data_dir, 'label_colors.txt')
+    )
 
     # set TensorFlow seed
     if seed is not None:
@@ -49,18 +76,35 @@ def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
             tf.keras.utils.set_random_seed(seed)
 
     model = create_model(
-        model, len(id2code), nr_bands, tensor_shape, loss=loss_function,
-        alpha=tversky_alpha, beta=tversky_beta,
+        model,
+        len(id2code),
+        nr_bands,
+        tensor_shape,
+        loss=loss_function,
+        alpha=tversky_alpha,
+        beta=tversky_beta,
         dropout_rate_input=dropout_rate_input,
-        dropout_rate_hidden=dropout_rate_hidden, backbone=backbone, name=name)
+        dropout_rate_hidden=dropout_rate_hidden,
+        backbone=backbone,
+        name=name,
+    )
 
     # val generator used for both the training and the detection
     val_generator = AugmentGenerator(
-        data_dir, input_regex, batch_size, 'val', tensor_shape,
-        force_dataset_generation, fit_memory, augment=augment,
-        val_set_pct=val_set_pct, filter_by_class=filter_by_class,
-        padding_mode=padding_mode, mask_ignore_value=mask_ignore_value,
-        verbose=verbose)
+        data_dir,
+        input_regex,
+        batch_size,
+        'val',
+        tensor_shape,
+        force_dataset_generation,
+        fit_memory,
+        augment=augment,
+        val_set_pct=val_set_pct,
+        filter_by_class=filter_by_class,
+        padding_mode=padding_mode,
+        mask_ignore_value=mask_ignore_value,
+        verbose=verbose,
+    )
 
     # load weights if the model is supposed to do so
     if operation == 'fine-tune':
@@ -72,26 +116,59 @@ def run(operation, data_dir, output_dir, model, model_fn, input_regex='*.tif',
             else:
                 model.set_layers_trainable(False, frozen_layer_groups)
             model.compile(
-                    optimizer=model.optimizer,
-                    loss=model.loss,
-                    metrics=model.compiled_metrics._metrics)
+                optimizer=model.optimizer,
+                loss=model.loss,
+                metrics=model.compiled_metrics._metrics,
+            )
 
     train_generator = AugmentGenerator(
-        data_dir, input_regex, batch_size, 'train', tensor_shape,
-        False, fit_memory, augment=augment,
-        padding_mode=padding_mode, mask_ignore_value=mask_ignore_value,
-        verbose=verbose)
+        data_dir,
+        input_regex,
+        batch_size,
+        'train',
+        tensor_shape,
+        False,
+        fit_memory,
+        augment=augment,
+        padding_mode=padding_mode,
+        mask_ignore_value=mask_ignore_value,
+        verbose=verbose,
+    )
 
-    train(model, train_generator, val_generator, id2code, batch_size,
-          output_dir, visualization_path, model_fn, nr_epochs,
-          initial_epoch, seed=seed, patience=patience,
-          monitored_value=monitored_value, verbose=verbose)
+    train(
+        model,
+        train_generator,
+        val_generator,
+        id2code,
+        batch_size,
+        output_dir,
+        visualization_path,
+        model_fn,
+        nr_epochs,
+        initial_epoch,
+        seed=seed,
+        patience=patience,
+        monitored_value=monitored_value,
+        verbose=verbose,
+    )
 
 
-def train(model, train_generator, val_generator, id2code, batch_size,
-          output_dir, visualization_path, model_fn, nr_epochs,
-          initial_epoch=0, seed=1, patience=100,
-          monitored_value='val_accuracy', verbose=1):
+def train(
+    model,
+    train_generator,
+    val_generator,
+    id2code,
+    batch_size,
+    output_dir,
+    visualization_path,
+    model_fn,
+    nr_epochs,
+    initial_epoch=0,
+    seed=1,
+    patience=100,
+    monitored_value='val_accuracy',
+    verbose=1,
+):
     """Run model training.
 
     :param model: model to be used for the detection
@@ -136,15 +213,22 @@ def train(model, train_generator, val_generator, id2code, batch_size,
     # set up monitoring
     tb = TensorBoard(log_dir=log_dir, write_graph=True)
     mc = ModelCheckpoint(
-        mode=early_stop_mode, filepath=out_model_path,
-        monitor=monitored_value, save_best_only='True',
+        mode=early_stop_mode,
+        filepath=out_model_path,
+        monitor=monitored_value,
+        save_best_only='True',
         save_weights_only='True',
-        verbose=1)
+        verbose=1,
+    )
     # TODO: check custom earlystopping to monitor multiple metrics
     #       https://stackoverflow.com/questions/64556120/early-stopping-with-multiple-conditions
-    es = EarlyStopping(mode=early_stop_mode, monitor=monitored_value,
-                       patience=patience, verbose=verbose,
-                       restore_best_weights=True)
+    es = EarlyStopping(
+        mode=early_stop_mode,
+        monitor=monitored_value,
+        patience=patience,
+        verbose=verbose,
+        restore_best_weights=True,
+    )
     callbacks = [tb, mc, es]
 
     # steps per epoch not needed to be specified if the data are augmented, but
@@ -161,6 +245,7 @@ def train(model, train_generator, val_generator, id2code, batch_size,
         epochs=nr_epochs,
         initial_epoch=initial_epoch,
         verbose=verbose,
-        callbacks=callbacks)
+        callbacks=callbacks,
+    )
 
     write_stats(result, os.path.join(visualization_path, 'accu.png'))

@@ -16,12 +16,24 @@ from cnn_lib.visualization import visualize_detections
 from cnn_lib.cnn_exceptions import DatasetError
 
 
-def run(data_dir, model, in_weights_path, input_regex='*.tif',
-        visualization_path='/tmp', batch_size=1, seed=1,
-        tensor_shape=(256, 256), force_dataset_generation=False,
-        fit_memory=False, val_set_pct=1, filter_by_class=None,
-        padding_mode=None, mask_ignore_value=255, backbone=None,
-        ignore_masks=False):
+def run(
+    data_dir,
+    model,
+    in_weights_path,
+    input_regex='*.tif',
+    visualization_path='/tmp',
+    batch_size=1,
+    seed=1,
+    tensor_shape=(256, 256),
+    force_dataset_generation=False,
+    fit_memory=False,
+    val_set_pct=1,
+    filter_by_class=None,
+    padding_mode=None,
+    mask_ignore_value=255,
+    backbone=None,
+    ignore_masks=False,
+):
     utils.print_device_info()
 
     # get nr of bands
@@ -47,37 +59,69 @@ def run(data_dir, model, in_weights_path, input_regex='*.tif',
             raise DatasetError('No labels provided in the dataset.')
 
     label_codes, label_names, id2code = utils.get_codings(
-        os.path.join(data_dir, 'label_colors.txt'))
+        os.path.join(data_dir, 'label_colors.txt')
+    )
 
     # set TensorFlow seed
     if seed is not None:
-        import sys
         if int(tf.__version__.split('.')[1]) < 4:
             tf.random.set_seed(seed)
         else:
             tf.keras.utils.set_random_seed(seed)
 
-    model = create_model(model, len(id2code), nr_bands, tensor_shape,
-                         backbone=backbone, verbose=1)
+    model = create_model(
+        model,
+        len(id2code),
+        nr_bands,
+        tensor_shape,
+        backbone=backbone,
+        verbose=1,
+    )
 
     # val generator used for both the training and the detection
     val_generator = AugmentGenerator(
-        data_dir, input_regex, batch_size, 'val', tensor_shape, force_dataset_generation,
-        fit_memory, val_set_pct=val_set_pct, filter_by_class=filter_by_class,
-        ignore_masks=ignore_masks, padding_mode=padding_mode,
-        mask_ignore_value=mask_ignore_value)
+        data_dir,
+        input_regex,
+        batch_size,
+        'val',
+        tensor_shape,
+        force_dataset_generation,
+        fit_memory,
+        val_set_pct=val_set_pct,
+        filter_by_class=filter_by_class,
+        ignore_masks=ignore_masks,
+        padding_mode=padding_mode,
+        mask_ignore_value=mask_ignore_value,
+    )
 
     # load weights
     model.load_weights(in_weights_path)
     model.set_weights(utils.model_replace_nans(model.get_weights()))
 
-    detect(model, val_generator, id2code, [i for i in label_codes],
-           label_names, data_dir, seed, visualization_path,
-           ignore_masks=ignore_masks)
+    detect(
+        model,
+        val_generator,
+        id2code,
+        [i for i in label_codes],
+        label_names,
+        data_dir,
+        seed,
+        visualization_path,
+        ignore_masks=ignore_masks,
+    )
 
 
-def detect(model, val_generator, id2code, label_codes, label_names,
-           data_dir, seed=1, out_dir='/tmp', ignore_masks=False):
+def detect(
+    model,
+    val_generator,
+    id2code,
+    label_codes,
+    label_names,
+    data_dir,
+    seed=1,
+    out_dir='/tmp',
+    ignore_masks=False,
+):
     """Run detection.
 
     :param model: model to be used for the detection
@@ -106,12 +150,20 @@ def detect(model, val_generator, id2code, label_codes, label_names,
         batch_img, batch_mask = next(testing_gen)
         pred_all = model.predict(batch_img)
 
-        batch_geoinfos = geoinfos[i:i + batch_size]
+        batch_geoinfos = geoinfos[i : i + batch_size]
 
         # visualize the natch
-        visualize_detections(batch_img, batch_mask, pred_all, id2code,
-                             label_codes, label_names, batch_geoinfos,
-                             out_dir, ignore_masks=ignore_masks)
+        visualize_detections(
+            batch_img,
+            batch_mask,
+            pred_all,
+            id2code,
+            label_codes,
+            label_names,
+            batch_geoinfos,
+            out_dir,
+            ignore_masks=ignore_masks,
+        )
 
 
 def get_geoinfo(data_dir):

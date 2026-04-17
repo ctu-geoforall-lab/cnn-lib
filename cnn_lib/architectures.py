@@ -2,24 +2,54 @@
 
 from abc import ABC, abstractmethod
 from tensorflow.keras import layers as k_layers
-from tensorflow.keras.layers import MaxPooling2D, Conv2D, Input, \
-    UpSampling2D, Concatenate, Dropout, ZeroPadding2D, \
-    GlobalAveragePooling2D, GlobalMaxPooling2D, Dense
+from tensorflow.keras.layers import (
+    MaxPooling2D,
+    Conv2D,
+    Input,
+    UpSampling2D,
+    Concatenate,
+    Dropout,
+    ZeroPadding2D,
+    GlobalAveragePooling2D,
+    GlobalMaxPooling2D,
+    Dense,
+)
 from tensorflow.keras.models import Model
 
-from cnn_lib.lib import ConvBlock, MyMaxPooling, MyMaxUnpooling, \
-    categorical_dice, categorical_tversky, masked_crossentropy, ResBlock, IdentityBlock, ASPP
+from cnn_lib.lib import (
+    ConvBlock,
+    MyMaxPooling,
+    MyMaxUnpooling,
+    categorical_dice,
+    categorical_tversky,
+    masked_crossentropy,
+    ResBlock,
+    IdentityBlock,
+    ASPP,
+)
 from cnn_lib.cnn_exceptions import ModelConfigError
 
 
 class _BaseModel(Model, ABC):
     """A base Model class holding methods mutual for various architectures."""
 
-    def __init__(self, nr_classes, nr_bands=12, nr_filters=64, batch_norm=True,
-                 dilation_rate=1, tensor_shape=(256, 256),
-                 activation=k_layers.ReLU, padding='same',
-                 dropout_rate_input=None, dropout_rate_hidden=None,
-                 use_bias=True, onehot_encode=True, name=None, **kwargs):
+    def __init__(
+        self,
+        nr_classes,
+        nr_bands=12,
+        nr_filters=64,
+        batch_norm=True,
+        dilation_rate=1,
+        tensor_shape=(256, 256),
+        activation=k_layers.ReLU,
+        padding='same',
+        dropout_rate_input=None,
+        dropout_rate_hidden=None,
+        use_bias=True,
+        onehot_encode=True,
+        name=None,
+        **kwargs,
+    ):
         """Model constructor.
 
         :param nr_classes: number of classes to be predicted
@@ -71,12 +101,13 @@ class _BaseModel(Model, ABC):
 
     def check_parameters(self):
         """Check the reasonability of the architecture parameters."""
-        if any([i % (2 ** 4) != 0 for i in self.tensor_shape]):
+        if any([i % (2**4) != 0 for i in self.tensor_shape]):
             raise ModelConfigError(
                 'The tensor height and tensor width must be divisible by 32 '
                 'for the architecture, but they are {} and {} '
-                'respectively instead'.format(self.tensor_shape[0],
-                                              self.tensor_shape[1])
+                'respectively instead'.format(
+                    self.tensor_shape[0], self.tensor_shape[1]
+                )
             )
 
     def get_classifier_function(self):
@@ -99,7 +130,10 @@ class _BaseModel(Model, ABC):
         if self.dropout_rate_input is not None:
             x = Dropout(rate=self.dropout_rate_input, name='dropout_input')
         else:
-            x = lambda a: a
+
+            def x(a):
+                """Non-lambda version of `lambda a: a`."""
+                return a
 
         return x
 
@@ -112,12 +146,14 @@ class _BaseModel(Model, ABC):
             nr_filters = self.nr_classes
         else:
             nr_filters = 1
-        return Conv2D(nr_filters,
-                      (1, 1),
-                      activation=self.get_classifier_function(),
-                      padding=self.padding,
-                      dilation_rate=self.dilation_rate,
-                      name='classifier_layer')
+        return Conv2D(
+            nr_filters,
+            (1, 1),
+            activation=self.get_classifier_function(),
+            padding=self.padding,
+            dilation_rate=self.dilation_rate,
+            name='classifier_layer',
+        )
 
     def summary(self, line_length=None, positions=None, print_fn=None):
         """Print a string summary of the network.
@@ -132,10 +168,13 @@ class _BaseModel(Model, ABC):
         :param print_fn: Print function to use
         :return: printed string summary of the network
         """
-        inputs = Input((self.tensor_shape[0], self.tensor_shape[1],
-                        self.nr_bands), name='input')
-        model = Model(inputs=[inputs], outputs=self.call(inputs),
-                      name=self.name)
+        inputs = Input(
+            (self.tensor_shape[0], self.tensor_shape[1], self.nr_bands),
+            name='input',
+        )
+        model = Model(
+            inputs=[inputs], outputs=self.call(inputs), name=self.name
+        )
         return model.summary(line_length, positions, print_fn)
 
     @abstractmethod
@@ -172,9 +211,11 @@ class _BaseModel(Model, ABC):
             If None or empty, all layers are affected.
         """
         for layer in self.layers:
-            if patterns is None or any(p.lower() in layer.name.lower()
-                                       for p in patterns):
+            if patterns is None or any(
+                p.lower() in layer.name.lower() for p in patterns
+            ):
                 layer.trainable = trainable
+
 
 class UNet(_BaseModel):
     """U-Net architecture.
@@ -253,26 +294,40 @@ class UNet(_BaseModel):
         ds_blocks = []
         ds_pools = []
         for i in range(4):
-            ds_blocks.append(ConvBlock((self.nr_filters * (2 ** i), ),
-                                       ((3, 3), ),
-                                       (self.activation, ),
-                                       (self.padding, ),
-                                       self.dilation_rate,
-                                       dropout_rate=self.dropout_rate_hidden,
-                                       depth=2,
-                                       name=f'downsampling_block{i}'))
-            ds_pools.append(MaxPooling2D(pool_size=(2, 2), strides=(2, 2),
-                                         data_format='channels_last',
-                                         name=f'downsampling_pooling{i}'))
+            ds_blocks.append(
+                ConvBlock(
+                    (self.nr_filters * (2**i),),
+                    ((3, 3),),
+                    (self.activation,),
+                    (self.padding,),
+                    self.dilation_rate,
+                    dropout_rate=self.dropout_rate_hidden,
+                    depth=2,
+                    name=f'downsampling_block{i}',
+                )
+            )
+            ds_pools.append(
+                MaxPooling2D(
+                    pool_size=(2, 2),
+                    strides=(2, 2),
+                    data_format='channels_last',
+                    name=f'downsampling_pooling{i}',
+                )
+            )
 
         ds_ret = (ds_blocks, ds_pools)
 
         # middle conv block
-        m_block = ConvBlock((self.nr_filters * (2 ** 4), ), ((3, 3), ),
-                            (self.activation, ), (self.padding, ),
-                            self.dilation_rate,
-                            dropout_rate=self.dropout_rate_hidden, depth=2,
-                            name='middle_block')
+        m_block = ConvBlock(
+            (self.nr_filters * (2**4),),
+            ((3, 3),),
+            (self.activation,),
+            (self.padding,),
+            self.dilation_rate,
+            dropout_rate=self.dropout_rate_hidden,
+            depth=2,
+            name='middle_block',
+        )
 
         # upsampling layers
         us_samples = []
@@ -280,24 +335,33 @@ class UNet(_BaseModel):
         us_concats = []
         us_blocks = []
         for i in range(3, -1, -1):
-            us_samples.append(UpSampling2D(size=(2, 2),
-                                           name=f'upsampling_pool{i}'))
-            us_convs.append(Conv2D(self.nr_filters * (2 ** i), (2, 2),
-                                   padding=self.padding,
-                                   dilation_rate=self.dilation_rate,
-                                   name=f'upsampling_conv{i}'))
+            us_samples.append(
+                UpSampling2D(size=(2, 2), name=f'upsampling_pool{i}')
+            )
+            us_convs.append(
+                Conv2D(
+                    self.nr_filters * (2**i),
+                    (2, 2),
+                    padding=self.padding,
+                    dilation_rate=self.dilation_rate,
+                    name=f'upsampling_conv{i}',
+                )
+            )
             # concatenate the upsampled weights with the corresponding ones
             # from the contracting path
-            us_concats.append(Concatenate(axis=3,
-                                          name=f'upsampling_concat{i}'))
-            us_blocks.append(ConvBlock((self.nr_filters * (2 ** i), ),
-                                       ((3, 3), ),
-                                       (self.activation, ),
-                                       (self.padding, ),
-                                       self.dilation_rate,
-                                       dropout_rate=self.dropout_rate_hidden,
-                                       depth=2,
-                                       name=f'upsampling_block{i}'))
+            us_concats.append(Concatenate(axis=3, name=f'upsampling_concat{i}'))
+            us_blocks.append(
+                ConvBlock(
+                    (self.nr_filters * (2**i),),
+                    ((3, 3),),
+                    (self.activation,),
+                    (self.padding,),
+                    self.dilation_rate,
+                    dropout_rate=self.dropout_rate_hidden,
+                    depth=2,
+                    name=f'upsampling_block{i}',
+                )
+            )
 
         us_ret = (us_samples, us_convs, us_concats, us_blocks)
 
@@ -410,30 +474,47 @@ class SegNet(_BaseModel):
         ds_pools = []
         for i in range(2):
             # blocks of the depth 2
-            ds_blocks.append(ConvBlock((self.nr_filters * (2 ** i), ),
-                                       ((3, 3), ),
-                                       (self.activation, ), (self.padding, ),
-                                       self.dilation_rate,
-                                       dropout_rate=self.dropout_rate_hidden,
-                                       depth=2,
-                                       name=f'downsampling_block{i}'))
-            ds_pools.append(MyMaxPooling(pool_size=(2, 2),
-                                         strides=(2, 2),
-                                         data_format='channels_last'))
+            ds_blocks.append(
+                ConvBlock(
+                    (self.nr_filters * (2**i),),
+                    ((3, 3),),
+                    (self.activation,),
+                    (self.padding,),
+                    self.dilation_rate,
+                    dropout_rate=self.dropout_rate_hidden,
+                    depth=2,
+                    name=f'downsampling_block{i}',
+                )
+            )
+            ds_pools.append(
+                MyMaxPooling(
+                    pool_size=(2, 2),
+                    strides=(2, 2),
+                    data_format='channels_last',
+                )
+            )
 
         for i in range(2, 5):
             # blocks of the depth 3
-            ds_blocks.append(ConvBlock((self.nr_filters * (2 ** i), ),
-                                       ((3, 3), ),
-                                       (self.activation, ),
-                                       (self.padding, ),
-                                       self.dilation_rate,
-                                       dropout_rate=self.dropout_rate_hidden,
-                                       depth=3,
-                                       name=f'downsampling_block{i}'))
-            ds_pools.append(MyMaxPooling(pool_size=(2, 2),
-                                         strides=(2, 2),
-                                         data_format='channels_last'))
+            ds_blocks.append(
+                ConvBlock(
+                    (self.nr_filters * (2**i),),
+                    ((3, 3),),
+                    (self.activation,),
+                    (self.padding,),
+                    self.dilation_rate,
+                    dropout_rate=self.dropout_rate_hidden,
+                    depth=3,
+                    name=f'downsampling_block{i}',
+                )
+            )
+            ds_pools.append(
+                MyMaxPooling(
+                    pool_size=(2, 2),
+                    strides=(2, 2),
+                    data_format='channels_last',
+                )
+            )
 
         ds_ret = (ds_blocks, ds_pools)
 
@@ -444,54 +525,74 @@ class SegNet(_BaseModel):
             # blocks of the depth 3
             # upsampling with shared indices
             us_samples.append(MyMaxUnpooling(pool_size=(2, 2)))
-            us_blocks.append(ConvBlock((self.nr_filters * (2 ** i), ),
-                                       ((3, 3), ),
-                                       (self.activation, ),
-                                       (self.padding, ),
-                                       self.dilation_rate,
-                                       dropout_rate=self.dropout_rate_hidden,
-                                       depth=2,
-                                       name=f'upsampling_block{i}_2'))
-            us_blocks.append(ConvBlock((self.nr_filters * (2 ** (i - 1)), ),
-                                       ((3, 3), ),
-                                       (self.activation, ),
-                                       (self.padding, ),
-                                       self.dilation_rate,
-                                       dropout_rate=self.dropout_rate_hidden,
-                                       depth=1,
-                                       name=f'upsampling_block{i}_1'))
+            us_blocks.append(
+                ConvBlock(
+                    (self.nr_filters * (2**i),),
+                    ((3, 3),),
+                    (self.activation,),
+                    (self.padding,),
+                    self.dilation_rate,
+                    dropout_rate=self.dropout_rate_hidden,
+                    depth=2,
+                    name=f'upsampling_block{i}_2',
+                )
+            )
+            us_blocks.append(
+                ConvBlock(
+                    (self.nr_filters * (2 ** (i - 1)),),
+                    ((3, 3),),
+                    (self.activation,),
+                    (self.padding,),
+                    self.dilation_rate,
+                    dropout_rate=self.dropout_rate_hidden,
+                    depth=1,
+                    name=f'upsampling_block{i}_1',
+                )
+            )
 
         # a block of the depth 2
         us_samples.append(MyMaxUnpooling(pool_size=(2, 2)))
-        us_blocks.append(ConvBlock((self.nr_filters * (2 ** 1), ),
-                                   ((3, 3), ),
-                                   (self.activation, ),
-                                   (self.padding, ),
-                                   self.dilation_rate,
-                                   dropout_rate=self.dropout_rate_hidden,
-                                   depth=1,
-                                   name=f'upsampling_block1_2'))
-        us_blocks.append(ConvBlock((self.nr_filters * (2 ** 0), ),
-                                   ((3, 3), ),
-                                   (self.activation, ),
-                                   (self.padding, ),
-                                   self.dilation_rate,
-                                   dropout_rate=self.dropout_rate_hidden,
-                                   depth=1,
-                                   name=f'upsampling_block1_1'))
+        us_blocks.append(
+            ConvBlock(
+                (self.nr_filters * (2**1),),
+                ((3, 3),),
+                (self.activation,),
+                (self.padding,),
+                self.dilation_rate,
+                dropout_rate=self.dropout_rate_hidden,
+                depth=1,
+                name='upsampling_block1_2',
+            )
+        )
+        us_blocks.append(
+            ConvBlock(
+                (self.nr_filters * (2**0),),
+                ((3, 3),),
+                (self.activation,),
+                (self.padding,),
+                self.dilation_rate,
+                dropout_rate=self.dropout_rate_hidden,
+                depth=1,
+                name='upsampling_block1_1',
+            )
+        )
 
         # a block of the depth 1
         # the paper states depth two and then softmax, but I believe that this
         # should do the same trick
         us_samples.append(MyMaxUnpooling(pool_size=(2, 2)))
-        us_blocks.append(ConvBlock((self.nr_filters * (2 ** 0), ),
-                                   ((3, 3), ),
-                                   (self.activation, ),
-                                   (self.padding, ),
-                                   self.dilation_rate,
-                                   dropout_rate=self.dropout_rate_hidden,
-                                   depth=1,
-                                   name=f'upsampling_block0'))
+        us_blocks.append(
+            ConvBlock(
+                (self.nr_filters * (2**0),),
+                ((3, 3),),
+                (self.activation,),
+                (self.padding,),
+                self.dilation_rate,
+                dropout_rate=self.dropout_rate_hidden,
+                depth=1,
+                name='upsampling_block0',
+            )
+        )
 
         us_ret = (us_samples, us_blocks)
 
@@ -522,7 +623,7 @@ class SegNet(_BaseModel):
         :return: output of the upsampling
         """
         for i in range(len(self.us_pools)):
-            x = self.us_pools[i]((x, pool_indices[- (i + 1)]))
+            x = self.us_pools[i]((x, pool_indices[-(i + 1)]))
             x = self.us_blocks[2 * i](x)
             if 2 * i + 1 < len(self.us_blocks):
                 x = self.us_blocks[2 * i + 1](x)
@@ -543,8 +644,15 @@ class ResNet(_BaseModel):
     <https://stackoverflow.com/questions/39691902/ordering-of-batch-normalization-and-dropout>
     """
 
-    def __init__(self, *args, pooling='avg', depth=50, include_top=True,
-                 return_layers=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        pooling='avg',
+        depth=50,
+        include_top=True,
+        return_layers=None,
+        **kwargs,
+    ):
         """Model constructor.
 
         :param nr_classes: number of classes to be predicted
@@ -575,11 +683,13 @@ class ResNet(_BaseModel):
         if pooling not in ('avg', 'max'):
             raise ModelConfigError(
                 f'Pooling {pooling} not supported for ResNet. Supported '
-                f'pooling values are "avg" and "max"')
+                f'pooling values are "avg" and "max"'
+            )
         if depth not in (50, 101, 152):
             raise ModelConfigError(
                 f'ResNet variant of depth {depth} not supported. Supported '
-                f'depths are 50, 101, and 152')
+                f'depths are 50, 101, and 152'
+            )
 
         self.pooling = pooling
         self.depth = depth
@@ -633,10 +743,12 @@ class ResNet(_BaseModel):
         """
         config = super(ResNet, self).get_config()
 
-        config.update(pooling=self.pooling,
-                      depth=self.depth,
-                      include_top=self.include_top,
-                      return_layers=self.return_layers)
+        config.update(
+            pooling=self.pooling,
+            depth=self.depth,
+            include_top=self.include_top,
+            return_layers=self.return_layers,
+        )
 
         return config
 
@@ -649,81 +761,117 @@ class ResNet(_BaseModel):
         :return: this thing unfortunately differs
         """
         # stage 1
-        stage1 = [ZeroPadding2D(padding=(3, 3), name='conv1_pad'),
-                  ConvBlock(filters=(64,),
-                            kernel_sizes=((7, 7),),
-                            activations=(self.activation,),
-                            paddings=('valid',),
-                            dropout_rate=self.dropout_rate_hidden,
-                            depth=1,
-                            strides=((2, 2),),
-                            use_bias=self.use_bias,
-                            kernel_initializer='he_normal',
-                            name='conv_block_1'),
-                  ZeroPadding2D(padding=(1, 1), name='pool1_pad'),
-                  MaxPooling2D((3, 3), strides=(2, 2))]
+        stage1 = [
+            ZeroPadding2D(padding=(3, 3), name='conv1_pad'),
+            ConvBlock(
+                filters=(64,),
+                kernel_sizes=((7, 7),),
+                activations=(self.activation,),
+                paddings=('valid',),
+                dropout_rate=self.dropout_rate_hidden,
+                depth=1,
+                strides=((2, 2),),
+                use_bias=self.use_bias,
+                kernel_initializer='he_normal',
+                name='conv_block_1',
+            ),
+            ZeroPadding2D(padding=(1, 1), name='pool1_pad'),
+            MaxPooling2D((3, 3), strides=(2, 2)),
+        ]
         # TODO: Why zero padding?
 
         # stage 2
-        stage2 = [ResBlock(kernel_size=3,
-                           filters=(64, 64, 256),
-                           dropout_rate=self.dropout_rate_hidden,
-                           strides=(1, 1),
-                           activation=self.activation,
-                           use_bias=self.use_bias,
-                           name='res_block_2_1')]
+        stage2 = [
+            ResBlock(
+                kernel_size=3,
+                filters=(64, 64, 256),
+                dropout_rate=self.dropout_rate_hidden,
+                strides=(1, 1),
+                activation=self.activation,
+                use_bias=self.use_bias,
+                name='res_block_2_1',
+            )
+        ]
         for i in range(2, self.depths[1] + 1):
-            stage2.append(IdentityBlock(kernel_size=3,
-                                        filters=(64, 64, 256),
-                                        activation=self.activation,
-                                        dropout_rate=self.dropout_rate_hidden,
-                                        use_bias=self.use_bias,
-                                        name=f'id_block_2_{i}'))
+            stage2.append(
+                IdentityBlock(
+                    kernel_size=3,
+                    filters=(64, 64, 256),
+                    activation=self.activation,
+                    dropout_rate=self.dropout_rate_hidden,
+                    use_bias=self.use_bias,
+                    name=f'id_block_2_{i}',
+                )
+            )
 
         # stage 3
-        stage3 = [ResBlock(kernel_size=3,
-                           filters=(128, 128, 512),
-                           activation=self.activation,
-                           dropout_rate=self.dropout_rate_hidden,
-                           use_bias=self.use_bias,
-                           name='res_block_3_1')]
+        stage3 = [
+            ResBlock(
+                kernel_size=3,
+                filters=(128, 128, 512),
+                activation=self.activation,
+                dropout_rate=self.dropout_rate_hidden,
+                use_bias=self.use_bias,
+                name='res_block_3_1',
+            )
+        ]
         for i in range(2, self.depths[2] + 1):
-            stage3.append(IdentityBlock(kernel_size=3,
-                                        filters=(128, 128, 512),
-                                        activation=self.activation,
-                                        dropout_rate=self.dropout_rate_hidden,
-                                        use_bias=self.use_bias,
-                                        name=f'id_block_3_{i}'))
+            stage3.append(
+                IdentityBlock(
+                    kernel_size=3,
+                    filters=(128, 128, 512),
+                    activation=self.activation,
+                    dropout_rate=self.dropout_rate_hidden,
+                    use_bias=self.use_bias,
+                    name=f'id_block_3_{i}',
+                )
+            )
 
         # stage 4
-        stage4 = [ResBlock(kernel_size=3,
-                           filters=(256, 256, 1024),
-                           use_bias=self.use_bias,
-                           activation=self.activation,
-                           dropout_rate=self.dropout_rate_hidden,
-                           name='res_block_4_1')]
+        stage4 = [
+            ResBlock(
+                kernel_size=3,
+                filters=(256, 256, 1024),
+                use_bias=self.use_bias,
+                activation=self.activation,
+                dropout_rate=self.dropout_rate_hidden,
+                name='res_block_4_1',
+            )
+        ]
         for i in range(2, self.depths[3] + 1):
-            stage4.append(IdentityBlock(kernel_size=3,
-                                        filters=(256, 256, 1024),
-                                        use_bias=self.use_bias,
-                                        activation=self.activation,
-                                        dropout_rate=self.dropout_rate_hidden,
-                                        name=f'id_block_4_{i}'))
+            stage4.append(
+                IdentityBlock(
+                    kernel_size=3,
+                    filters=(256, 256, 1024),
+                    use_bias=self.use_bias,
+                    activation=self.activation,
+                    dropout_rate=self.dropout_rate_hidden,
+                    name=f'id_block_4_{i}',
+                )
+            )
 
         # stage 5
-        stage5 = [ResBlock(kernel_size=3,
-                           filters=(512, 512, 2048),
-                           use_bias=self.use_bias,
-                           activation=self.activation,
-                           dropout_rate=self.dropout_rate_hidden,
-                           name='res_block_5_1')]
+        stage5 = [
+            ResBlock(
+                kernel_size=3,
+                filters=(512, 512, 2048),
+                use_bias=self.use_bias,
+                activation=self.activation,
+                dropout_rate=self.dropout_rate_hidden,
+                name='res_block_5_1',
+            )
+        ]
         for i in range(2, self.depths[4] + 1):
-            stage5.append(IdentityBlock(kernel_size=3,
-                                        filters=(512, 512, 2048),
-                                        use_bias=self.use_bias,
-                                        activation=self.activation,
-                                        dropout_rate=self.dropout_rate_hidden,
-                                        name=f'id_block_5_{i}'))
+            stage5.append(
+                IdentityBlock(
+                    kernel_size=3,
+                    filters=(512, 512, 2048),
+                    use_bias=self.use_bias,
+                    activation=self.activation,
+                    dropout_rate=self.dropout_rate_hidden,
+                    name=f'id_block_5_{i}',
+                )
+            )
 
         # top
         if self.pooling == 'avg':
@@ -740,8 +888,11 @@ class ResNet(_BaseModel):
         :return: the classifier layer
         """
         if self.include_top is True:
-            return Dense(self.nr_classes, activation=self.activation,
-                         name='classifier_layer')
+            return Dense(
+                self.nr_classes,
+                activation=self.activation,
+                name='classifier_layer',
+            )
         else:
             return None
 
@@ -775,8 +926,14 @@ class DeepLabv3Plus(_BaseModel):
     The original architecture was enhanced by the option to perform dropout.
     """
 
-    def __init__(self, *args, resnet_pooling='avg', resnet_depth=50,
-                 resnet_2_out=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        resnet_pooling='avg',
+        resnet_depth=50,
+        resnet_2_out=None,
+        **kwargs,
+    ):
         """Model constructor.
 
         :param nr_classes: number of classes to be predicted
@@ -807,8 +964,7 @@ class DeepLabv3Plus(_BaseModel):
         self.resnet_depth = resnet_depth
 
         if resnet_2_out is None:
-            self.resnet_2_out = self.get_resnet_2_out(resnet_depth,
-                                                      out_stage=4)
+            self.resnet_2_out = self.get_resnet_2_out(resnet_depth, out_stage=4)
         else:
             self.resnet_2_out = resnet_2_out
 
@@ -855,14 +1011,17 @@ class DeepLabv3Plus(_BaseModel):
         """Instantiate layers lying between the input and the classifier."""
         # skipping last block of ResNet - seems to correspond with the
         # original DeepLabv3+ paper
-        self.backbone = ResNet(self.nr_classes, pooling=self.resnet_pooling,
-                               include_top=False, depth=self.resnet_depth,
-                               activation=self.activation,
-                               use_bias=self.use_bias,
-                               dropout_rate_hidden=self.dropout_rate_hidden,
-                               return_layers=('id_block_2_3',
-                                              self.resnet_2_out),
-                               name='resnet')
+        self.backbone = ResNet(
+            self.nr_classes,
+            pooling=self.resnet_pooling,
+            include_top=False,
+            depth=self.resnet_depth,
+            activation=self.activation,
+            use_bias=self.use_bias,
+            dropout_rate_hidden=self.dropout_rate_hidden,
+            return_layers=('id_block_2_3', self.resnet_2_out),
+            name='resnet',
+        )
 
         backbone_out_1_pooled = 4
         if 'block_4' in self.resnet_2_out:
@@ -870,53 +1029,67 @@ class DeepLabv3Plus(_BaseModel):
         elif 'block_5' in self.resnet_2_out:
             backbone_out_2_pooled = 32
         else:
-            raise ModelConfigError('So far only id_block_4_6 and id_block_5_3 '
-                                   'are supported as the deepest outputs from '
-                                   'ResNet for DeepLabv3+')
+            raise ModelConfigError(
+                'So far only id_block_4_6 and id_block_5_3 '
+                'are supported as the deepest outputs from '
+                'ResNet for DeepLabv3+'
+            )
 
         # following the paper in using only dilation rates 1, 6, 12, and 18
         # pool_dims should correspond to the dims of the returned layers from
         # the backbone model
         self.aspp = ASPP(
             dilation_rates=(1, 6, 12, 18),
-            pool_dims=(self.tensor_shape[0] // backbone_out_2_pooled,
-                       self.tensor_shape[1] // backbone_out_2_pooled),
+            pool_dims=(
+                self.tensor_shape[0] // backbone_out_2_pooled,
+                self.tensor_shape[1] // backbone_out_2_pooled,
+            ),
             activation=self.activation,
-            dropout_rate=self.dropout_rate_hidden)
+            dropout_rate=self.dropout_rate_hidden,
+        )
 
         self.aspp_upsample = UpSampling2D(
-            size=[backbone_out_2_pooled // backbone_out_1_pooled,
-                  backbone_out_2_pooled // backbone_out_1_pooled],
+            size=[
+                backbone_out_2_pooled // backbone_out_1_pooled,
+                backbone_out_2_pooled // backbone_out_1_pooled,
+            ],
             interpolation='bilinear',
-            name='aspp_upsample')
+            name='aspp_upsample',
+        )
 
-        self.low_level = ConvBlock(filters=(48, ),
-                                   kernel_sizes=((1, 1), ),
-                                   activations=(self.activation,),
-                                   dropout_rate=self.dropout_rate_hidden,
-                                   paddings=('same',),
-                                   depth=1,
-                                   kernel_initializer='he_normal',
-                                   name='low_level_conv_block',
-                                   use_bias=self.use_bias)
+        self.low_level = ConvBlock(
+            filters=(48,),
+            kernel_sizes=((1, 1),),
+            activations=(self.activation,),
+            dropout_rate=self.dropout_rate_hidden,
+            paddings=('same',),
+            depth=1,
+            kernel_initializer='he_normal',
+            name='low_level_conv_block',
+            use_bias=self.use_bias,
+        )
 
         self.concat = Concatenate(name='decoder_concat')
 
         # decoder
         self.decoder_layers = [
-            ConvBlock(filters=(256, 256),
-                      kernel_sizes=((3, 3), ),
-                      activations=(self.activation,),
-                      paddings=('same',),
-                      dropout_rate=self.dropout_rate_hidden,
-                      depth=2,
-                      kernel_initializer='he_normal',
-                      name='decoder_conv_blocks',
-                      use_bias=self.use_bias),
-            UpSampling2D(size=[backbone_out_1_pooled,
-                               backbone_out_1_pooled],
-                         interpolation='bilinear',
-                         name='decoder_final_upsample')]
+            ConvBlock(
+                filters=(256, 256),
+                kernel_sizes=((3, 3),),
+                activations=(self.activation,),
+                paddings=('same',),
+                dropout_rate=self.dropout_rate_hidden,
+                depth=2,
+                kernel_initializer='he_normal',
+                name='decoder_conv_blocks',
+                use_bias=self.use_bias,
+            ),
+            UpSampling2D(
+                size=[backbone_out_1_pooled, backbone_out_1_pooled],
+                interpolation='bilinear',
+                name='decoder_final_upsample',
+            ),
+        ]
 
     def get_config(self):
         """Return the configuration of the convolutional block.
@@ -929,9 +1102,11 @@ class DeepLabv3Plus(_BaseModel):
         """
         config = super(DeepLabv3Plus, self).get_config()
 
-        config.update(resnet_pooling=self.resnet_pooling,
-                      resnet_depth=self.resnet_depth,
-                      resnet_2_out=self.resnet_2_out)
+        config.update(
+            resnet_pooling=self.resnet_pooling,
+            resnet_depth=self.resnet_depth,
+            resnet_2_out=self.resnet_2_out,
+        )
 
         return config
 
@@ -960,8 +1135,9 @@ class VGG(_BaseModel):
     normalization.
     """
 
-    def __init__(self, *args, depth=16, include_top=True,
-                 return_layers=None, **kwargs):
+    def __init__(
+        self, *args, depth=16, include_top=True, return_layers=None, **kwargs
+    ):
         """Model constructor.
 
         :param nr_classes: number of classes to be predicted
@@ -990,7 +1166,8 @@ class VGG(_BaseModel):
         if depth != 16:
             raise ModelConfigError(
                 f'VGG variant of depth {depth} not supported. Supported '
-                f'depth is only 16 so far')
+                f'depth is only 16 so far'
+            )
 
         self.depth = depth
         self.include_top = include_top
@@ -999,7 +1176,6 @@ class VGG(_BaseModel):
         super(VGG, self).__init__(*args, **kwargs)
 
         self.vgg_layers = self.instantiate_layers()
-
 
     def call(self, inputs, training=None, mask=None):
         """Call the model on new inputs.
@@ -1042,9 +1218,11 @@ class VGG(_BaseModel):
         """
         config = super(VGG, self).get_config()
 
-        config.update(depth=self.depth,
-                      include_top=self.include_top,
-                      return_layers=self.return_layers)
+        config.update(
+            depth=self.depth,
+            include_top=self.include_top,
+            return_layers=self.return_layers,
+        )
 
         return config
 
@@ -1060,45 +1238,73 @@ class VGG(_BaseModel):
         # stage 1 and 2
         for i in range(2):
             # blocks of the depth 2
-            layers.append(ConvBlock((self.nr_filters * (2 ** i), ),
-                                    ((3, 3), ),
-                                    (self.activation, ), (self.padding, ),
-                                    self.dilation_rate,
-                                    dropout_rate=self.dropout_rate_hidden,
-                                    depth=2,
-                                    name=f'downsampling_block{i}'))
-            layers.append(MaxPooling2D(pool_size=(2, 2), strides=(2, 2),
-                                       data_format='channels_last',
-                                       name=f'downsampling_pooling{i}'))
+            layers.append(
+                ConvBlock(
+                    (self.nr_filters * (2**i),),
+                    ((3, 3),),
+                    (self.activation,),
+                    (self.padding,),
+                    self.dilation_rate,
+                    dropout_rate=self.dropout_rate_hidden,
+                    depth=2,
+                    name=f'downsampling_block{i}',
+                )
+            )
+            layers.append(
+                MaxPooling2D(
+                    pool_size=(2, 2),
+                    strides=(2, 2),
+                    data_format='channels_last',
+                    name=f'downsampling_pooling{i}',
+                )
+            )
 
         for i in range(2, 5):
             # blocks of the depth 3
-            layers.append(ConvBlock((self.nr_filters * (2 ** i), ),
-                                    ((3, 3), ),
-                                    (self.activation, ), (self.padding, ),
-                                    self.dilation_rate,
-                                    dropout_rate=self.dropout_rate_hidden,
-                                    depth=3,
-                                    name=f'downsampling_block{i}'))
-            layers.append(MaxPooling2D(pool_size=(2, 2), strides=(2, 2),
-                                       data_format='channels_last',
-                                       name=f'downsampling_pooling{i}'))
+            layers.append(
+                ConvBlock(
+                    (self.nr_filters * (2**i),),
+                    ((3, 3),),
+                    (self.activation,),
+                    (self.padding,),
+                    self.dilation_rate,
+                    dropout_rate=self.dropout_rate_hidden,
+                    depth=3,
+                    name=f'downsampling_block{i}',
+                )
+            )
+            layers.append(
+                MaxPooling2D(
+                    pool_size=(2, 2),
+                    strides=(2, 2),
+                    data_format='channels_last',
+                    name=f'downsampling_pooling{i}',
+                )
+            )
 
         if self.include_top is True:
-            layers.append(Dense(self.nr_filters * (2 ** i) * 4,
-                                # in the original paper it is 4096; the
-                                # preceding will result in 4096 in the case
-                                # of default nr of filters, but will keep
-                                # it dynamic for other settings
-                                activation=self.activation,
-                                name='fc0'))
-            layers.append(Dense(self.nr_filters * (2 ** i) * 4,
-                                # in the original paper it is 4096; the
-                                # preceding will result in 4096 in the case
-                                # of default nr of filters, but will keep
-                                # it dynamic for other settings
-                                activation=self.activation,
-                                name='fc1'))
+            layers.append(
+                Dense(
+                    self.nr_filters * (2**i) * 4,
+                    # in the original paper it is 4096; the
+                    # preceding will result in 4096 in the case
+                    # of default nr of filters, but will keep
+                    # it dynamic for other settings
+                    activation=self.activation,
+                    name='fc0',
+                )
+            )
+            layers.append(
+                Dense(
+                    self.nr_filters * (2**i) * 4,
+                    # in the original paper it is 4096; the
+                    # preceding will result in 4096 in the case
+                    # of default nr of filters, but will keep
+                    # it dynamic for other settings
+                    activation=self.activation,
+                    name='fc1',
+                )
+            )
 
         return layers
 
@@ -1108,8 +1314,11 @@ class VGG(_BaseModel):
         :return: the classifier layer
         """
         if self.include_top is True:
-            return Dense(self.nr_classes, activation=self.activation,
-                         name='classifier_layer')
+            return Dense(
+                self.nr_classes,
+                activation=self.activation,
+                name='classifier_layer',
+            )
         else:
             return None
 
@@ -1201,61 +1410,80 @@ class FCN(_BaseModel):
         """Instantiate layers lying between the input and the classifier."""
         # skip top layers of VGG because FCN replaces fully connected layers
         # with convolutional ones
-        self.backbone = VGG(self.nr_classes,
-                            include_top=False,
-                            depth=self.vgg_depth,
-                            activation=self.activation,
-                            use_bias=self.use_bias,
-                            dropout_rate_hidden=self.dropout_rate_hidden,
-                            return_layers=('downsampling_pooling2',
-                                           'downsampling_pooling3',
-                                           'downsampling_pooling4'),
-                            name=f'vgg{self.vgg_depth}')
+        self.backbone = VGG(
+            self.nr_classes,
+            include_top=False,
+            depth=self.vgg_depth,
+            activation=self.activation,
+            use_bias=self.use_bias,
+            dropout_rate_hidden=self.dropout_rate_hidden,
+            return_layers=(
+                'downsampling_pooling2',
+                'downsampling_pooling3',
+                'downsampling_pooling4',
+            ),
+            name=f'vgg{self.vgg_depth}',
+        )
 
         # FCN-32s
         self.level5_classifier_layers = []
         # 1. if you wish to understand the nr of filters, see the corresponding
         #    comment in VGG
         # 2. the kernel corresponds to the entire feature map
-        level5_tensor_shape = self.tensor_shape[0] / (2 ** 5)
+        level5_tensor_shape = self.tensor_shape[0] / (2**5)
         if level5_tensor_shape % 1 == 0:
             level5_tensor_shape = int(level5_tensor_shape)
         else:
-            raise ModelConfigError('Last layer dimensions do not seem to be '
-                                   'integers.')
+            raise ModelConfigError(
+                'Last layer dimensions do not seem to be integers.'
+            )
         # why the kernel in the size of the feature map?
         # cite: these fully connected layers can also be viewed as
         # convolutions with kernels that cover their entire input regions
         self.level5_classifier_layers.append(
-            ConvBlock((self.nr_filters * (2 ** 4) * 4, ),
-                      ((level5_tensor_shape, level5_tensor_shape, ), ),
-                      (self.activation, ), (self.padding, ),
-                      self.dilation_rate,
-                      dropout_rate=self.dropout_rate_hidden,
-                      depth=1,
-                      name=f'block5_conv1')
+            ConvBlock(
+                (self.nr_filters * (2**4) * 4,),
+                (
+                    (
+                        level5_tensor_shape,
+                        level5_tensor_shape,
+                    ),
+                ),
+                (self.activation,),
+                (self.padding,),
+                self.dilation_rate,
+                dropout_rate=self.dropout_rate_hidden,
+                depth=1,
+                name='block5_conv1',
+            )
         )
         self.level5_classifier_layers.append(
-            ConvBlock((self.nr_filters * (2 ** 4) * 4, ),
-                      ((1, 1), ),
-                      (self.activation, ), (self.padding, ),
-                      self.dilation_rate,
-                      dropout_rate=self.dropout_rate_hidden,
-                      depth=1,
-                      name=f'block5_conv2')
+            ConvBlock(
+                (self.nr_filters * (2**4) * 4,),
+                ((1, 1),),
+                (self.activation,),
+                (self.padding,),
+                self.dilation_rate,
+                dropout_rate=self.dropout_rate_hidden,
+                depth=1,
+                name='block5_conv2',
+            )
         )
         self.level5_classifier_layers.append(
-            Conv2D(self.nr_classes,
-                   (1, 1),
-                   activation=self.get_classifier_function(),
-                   padding=self.padding,
-                   dilation_rate=self.dilation_rate,
-                   name=f'block5_class')
+            Conv2D(
+                self.nr_classes,
+                (1, 1),
+                activation=self.get_classifier_function(),
+                padding=self.padding,
+                dilation_rate=self.dilation_rate,
+                name='block5_class',
+            )
         )
 
         if self.variant == '32s':
-            self.final_upsample = UpSampling2D(size=(32, 32),
-                                               name='upsampling_final')
+            self.final_upsample = UpSampling2D(
+                size=(32, 32), name='upsampling_final'
+            )
             return 0
         elif self.variant == '16s':
             stop_level = 4
@@ -1267,22 +1495,24 @@ class FCN(_BaseModel):
         self.adds = []
         for i in range(5, stop_level, -1):
             self.upsamples.append(
-                UpSampling2D(size=(2, 2),
-                             name=f'upsampling_{i}_to_{i - 1}'))
+                UpSampling2D(size=(2, 2), name=f'upsampling_{i}_to_{i - 1}')
+            )
             # seems like only 1x1 convolutions are in the upper levels
-            self.classifiers.append(Conv2D(
-                self.nr_classes,
-                (1, 1),
-                activation=self.get_classifier_function(),
-                padding=self.padding,
-                dilation_rate=self.dilation_rate,
-                name=f'block{i - 1}_class'
-            ))
+            self.classifiers.append(
+                Conv2D(
+                    self.nr_classes,
+                    (1, 1),
+                    activation=self.get_classifier_function(),
+                    padding=self.padding,
+                    dilation_rate=self.dilation_rate,
+                    name=f'block{i - 1}_class',
+                )
+            )
             self.adds.append(Concatenate(axis=3, name=f'concat_{i}_to_{i - 1}'))
 
-        self.final_upsample = UpSampling2D(size=(2 ** stop_level,
-                                                 2 ** stop_level),
-                                           name='upsampling_final')
+        self.final_upsample = UpSampling2D(
+            size=(2**stop_level, 2**stop_level), name='upsampling_final'
+        )
 
     def get_config(self):
         """Return the configuration of the convolutional block.
@@ -1295,17 +1525,31 @@ class FCN(_BaseModel):
         """
         config = super(FCN, self).get_config()
 
-        config.update(vgg_pooling=self.vgg_pooling,
-                      vgg_depth=self.vgg_depth)
+        config.update(vgg_pooling=self.vgg_pooling, vgg_depth=self.vgg_depth)
 
         return config
 
 
-def create_model(model, nr_classes, nr_bands, tensor_shape,
-                 nr_filters=64, optimizer='adam', loss='dice', metrics=None,
-                 activation='relu', padding='same', verbose=1, alpha=None,
-                 beta=None, dropout_rate_input=None, dropout_rate_hidden=None,
-                 backbone=None, name='model', **kwargs):
+def create_model(
+    model,
+    nr_classes,
+    nr_bands,
+    tensor_shape,
+    nr_filters=64,
+    optimizer='adam',
+    loss='dice',
+    metrics=None,
+    activation='relu',
+    padding='same',
+    verbose=1,
+    alpha=None,
+    beta=None,
+    dropout_rate_input=None,
+    dropout_rate_hidden=None,
+    backbone=None,
+    name='model',
+    **kwargs,
+):
     """Create intended model.
 
     :param model: model architecture
@@ -1336,10 +1580,17 @@ def create_model(model, nr_classes, nr_bands, tensor_shape,
     :param name: The name of the model
     :return: compiled model
     """
-    model_classes = {'U-Net': UNet, 'SegNet': SegNet, 'DeepLab': DeepLabv3Plus,
-                     'FCN': FCN}
-    activations = {'relu': k_layers.ReLU, 'leaky_relu': k_layers.LeakyReLU,
-                   'prelu': k_layers.PReLU}
+    model_classes = {
+        'U-Net': UNet,
+        'SegNet': SegNet,
+        'DeepLab': DeepLabv3Plus,
+        'FCN': FCN,
+    }
+    activations = {
+        'relu': k_layers.ReLU,
+        'leaky_relu': k_layers.LeakyReLU,
+        'prelu': k_layers.PReLU,
+    }
 
     if metrics is None:
         metrics = ['accuracy']
@@ -1353,25 +1604,34 @@ def create_model(model, nr_classes, nr_bands, tensor_shape,
         vgg_depth = int(backbone.split('VGG')[1])
         kwargs.update({'vgg_depth': vgg_depth})
 
-    model = model_classes[model](nr_classes, nr_bands=nr_bands,
-                                 nr_filters=nr_filters,
-                                 tensor_shape=tensor_shape,
-                                 activation=activations[activation],
-                                 padding=padding,
-                                 dropout_rate_input=dropout_rate_input,
-                                 dropout_rate_hidden=dropout_rate_hidden,
-                                 name=name,
-                                 **kwargs)
+    model = model_classes[model](
+        nr_classes,
+        nr_bands=nr_bands,
+        nr_filters=nr_filters,
+        tensor_shape=tensor_shape,
+        activation=activations[activation],
+        padding=padding,
+        dropout_rate_input=dropout_rate_input,
+        dropout_rate_hidden=dropout_rate_hidden,
+        name=name,
+        **kwargs,
+    )
 
     # get loss functions corresponding to custom losses
     if loss == 'dice':
         loss = categorical_dice
     elif loss == 'tversky':
-        loss = lambda gt, p: categorical_tversky(gt, p, alpha, beta)
+
+        def loss(gt, p):
+            """Non-lambda version of `categorical_tversky(gt, p, alpha, beta)`."""
+            return categorical_tversky(gt, p, alpha, beta)
     elif loss == 'categorical_crossentropy':
         loss = masked_crossentropy
     elif loss == 'binary_crossentropy':
-        loss = lambda gt, p: masked_crossentropy(gt, p, binary=True)
+
+        def loss(gt, p):
+            """Non-lambda version of `loss = lambda gt, p: masked_crossentropy(gt, p, binary=True)`."""
+            return masked_crossentropy(gt, p, binary=True)
 
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
     model.build(input_shape=(None, tensor_shape[0], tensor_shape[1], nr_bands))

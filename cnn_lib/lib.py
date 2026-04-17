@@ -8,8 +8,16 @@ import tensorflow as tf
 from osgeo import gdal
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras import layers as k_layers
-from tensorflow.keras.layers import Layer, Conv2D, BatchNormalization, \
-    Activation, Dropout, Add, AveragePooling2D, UpSampling2D, Concatenate
+from tensorflow.keras.layers import (
+    Layer,
+    Conv2D,
+    BatchNormalization,
+    Dropout,
+    Add,
+    AveragePooling2D,
+    UpSampling2D,
+    Concatenate,
+)
 from tensorflow.keras import backend as keras
 
 from cnn_lib.data_preparation import generate_dataset_structure
@@ -19,11 +27,24 @@ from cnn_lib.cnn_exceptions import LayerDefinitionError
 class AugmentGenerator:
     """Data generator."""
 
-    def __init__(self, data_dir, input_regex, batch_size=5, operation='train',
-                 tensor_shape=(256, 256), force_dataset_generation=False,
-                 fit_memory=False, augment=False, onehot_encode=True,
-                 val_set_pct=0.2, filter_by_class=None, ignore_masks=False, padding_mode=None, mask_ignore_value=255,
-                 verbose=1):
+    def __init__(
+        self,
+        data_dir,
+        input_regex,
+        batch_size=5,
+        operation='train',
+        tensor_shape=(256, 256),
+        force_dataset_generation=False,
+        fit_memory=False,
+        augment=False,
+        onehot_encode=True,
+        val_set_pct=0.2,
+        filter_by_class=None,
+        ignore_masks=False,
+        padding_mode=None,
+        mask_ignore_value=255,
+        verbose=1,
+    ):
         """Initialize the generator.
 
         :param data_dir: path to the directory containing images
@@ -50,26 +71,35 @@ class AugmentGenerator:
         :param verbose: verbosity (0=quiet, >0 verbose)
         """
         if operation not in ('train', 'val'):
-            raise AttributeError('Only values "train" and "val" supported as '
-                                 'operation. "{}" was given'.format(operation))
+            raise AttributeError(
+                'Only values "train" and "val" supported as '
+                'operation. "{}" was given'.format(operation)
+            )
 
-        images_dir = os.path.join(
-            data_dir, '{}_images'.format(operation))
-        masks_dir = os.path.join(
-            data_dir, '{}_masks'.format(operation))
+        images_dir = os.path.join(data_dir, '{}_images'.format(operation))
+        masks_dir = os.path.join(data_dir, '{}_masks'.format(operation))
 
         # generate the dataset structure if not generated
         if ignore_masks is False:
             check_existence_dirs = (images_dir, masks_dir)
         else:
-            check_existence_dirs = (images_dir, )
+            check_existence_dirs = (images_dir,)
 
         do_exist = [os.path.isdir(i) is True for i in check_existence_dirs]
 
         if force_dataset_generation is True or all(do_exist) is False:
-            generate_dataset_structure(data_dir, input_regex, tensor_shape,
-                                       val_set_pct, filter_by_class, augment,
-                                       ignore_masks, padding_mode, mask_ignore_value, verbose=verbose)
+            generate_dataset_structure(
+                data_dir,
+                input_regex,
+                tensor_shape,
+                val_set_pct,
+                filter_by_class,
+                augment,
+                ignore_masks,
+                padding_mode,
+                mask_ignore_value,
+                verbose=verbose,
+            )
 
         # create variables useful throughout the entire class
         self.nr_samples = len(os.listdir(images_dir))
@@ -111,9 +141,11 @@ class AugmentGenerator:
         """
         # create generators
         image_generator = self.numpy_generator(
-            self.images_dir, False, self.batch_size, self.fit_memory)
+            self.images_dir, False, self.batch_size, self.fit_memory
+        )
         mask_generator = self.numpy_generator(
-            self.masks_dir, False, self.batch_size, self.fit_memory)
+            self.masks_dir, False, self.batch_size, self.fit_memory
+        )
 
         while True:
             x1i = next(image_generator)
@@ -123,8 +155,9 @@ class AugmentGenerator:
                 if self.perform_onehot_encoding is True:
                     # one hot encode masks
                     x2i = [
-                        self.onehot_encode(x2i[x, :, :, :], id2code) for x in
-                        range(x2i.shape[0])]
+                        self.onehot_encode(x2i[x, :, :, :], id2code)
+                        for x in range(x2i.shape[0])
+                    ]
             else:
                 x2i = 0
 
@@ -143,19 +176,30 @@ class AugmentGenerator:
         if self.perform_onehot_encoding is True:
             # one hot encode masks
             masks = [
-                self.onehot_encode(masks[x, :, :, :], id2code) for x in
-                range(masks.shape[0])]
+                self.onehot_encode(masks[x, :, :, :], id2code)
+                for x in range(masks.shape[0])
+            ]
 
-        datagen = ImageDataGenerator(rotation_range=180, shear_range=0.2,
-                                     horizontal_flip=True, vertical_flip=True)
+        datagen = ImageDataGenerator(
+            rotation_range=180,
+            shear_range=0.2,
+            horizontal_flip=True,
+            vertical_flip=True,
+        )
 
         datagen.fit(images, seed=seed, augment=True)
 
-        return datagen.flow(images, np.asarray(masks), seed=seed,
-                            batch_size=self.batch_size, shuffle=True)
+        return datagen.flow(
+            images,
+            np.asarray(masks),
+            seed=seed,
+            batch_size=self.batch_size,
+            shuffle=True,
+        )
 
-    def numpy_generator(self, data_dir, rescale=False, batch_size=5,
-                        fit_memory=False):
+    def numpy_generator(
+        self, data_dir, rescale=False, batch_size=5, fit_memory=False
+    ):
         """Generate batches of images.
 
         :param data_dir: path to the directory containing images
@@ -207,8 +251,8 @@ class AugmentGenerator:
         files_list = sorted(os.listdir(data_dir))
 
         images_list = [
-            self.transpose_image(data_dir, file, rescale) for file in
-            files_list]
+            self.transpose_image(data_dir, file, rescale) for file in files_list
+        ]
 
         return images_list
 
@@ -234,7 +278,7 @@ class AugmentGenerator:
             transposed = np.moveaxis(image.ReadAsArray(), 0, -1)
 
         if rescale:
-            transposed *= 1. / 255
+            transposed *= 1.0 / 255
 
         image = None
 
@@ -268,6 +312,7 @@ class AugmentGenerator:
 
 # loss functions
 
+
 def categorical_dice(ground_truth_onehot, predictions, weights=1):
     """Compute the Sorensen-Dice loss.
 
@@ -279,13 +324,16 @@ def categorical_dice(ground_truth_onehot, predictions, weights=1):
         (number-of-classes-long vector)
     :return: dice loss value averaged for all classes
     """
-    loss = categorical_tversky(ground_truth_onehot, predictions, 0.5, 0.5,
-                               weights)
+    loss = categorical_tversky(
+        ground_truth_onehot, predictions, 0.5, 0.5, weights
+    )
 
     return loss
 
 
-def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5, beta=0.5, weights=1):
+def categorical_tversky(
+    ground_truth_onehot, predictions, alpha=0.5, beta=0.5, weights=1
+):
     """Compute the Tversky loss.
 
     alpha == beta == 0.5 -> Dice loss
@@ -303,7 +351,9 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5, beta=0.5, w
     """
     weight_tensor = tf.constant(weights, dtype=tf.float32)
     predictions = tf.cast(predictions, tf.float32, name='tversky_cast_pred')
-    ground_truth_onehot = tf.cast(ground_truth_onehot, tf.float32, name='tversky_cast_gt')
+    ground_truth_onehot = tf.cast(
+        ground_truth_onehot, tf.float32, name='tversky_cast_gt'
+    )
 
     # indices of ground truth classes
     pixel_has_class = tf.reduce_sum(ground_truth_onehot, axis=-1)
@@ -328,6 +378,7 @@ def categorical_tversky(ground_truth_onehot, predictions, alpha=0.5, beta=0.5, w
 
     return loss
 
+
 def masked_crossentropy(ground_truth_onehot, predictions, binary=False):
     """Crossentropy loss that ignores padded pixels.
 
@@ -341,8 +392,12 @@ def masked_crossentropy(ground_truth_onehot, predictions, binary=False):
     :param binary: if True, use binary crossentropy, otherwise categorical
     :return: mean crossentropy loss over valid pixels only
     """
-    ground_truth_onehot = tf.cast(ground_truth_onehot, tf.float32, name='crossentropy_cast_gt')
-    predictions = tf.cast(predictions, tf.float32, name='crossentropy_cast_pred')
+    ground_truth_onehot = tf.cast(
+        ground_truth_onehot, tf.float32, name='crossentropy_cast_gt'
+    )
+    predictions = tf.cast(
+        predictions, tf.float32, name='crossentropy_cast_pred'
+    )
 
     # indices of ground truth classes
     pixel_has_class = tf.reduce_sum(ground_truth_onehot, axis=-1)
@@ -361,14 +416,26 @@ def masked_crossentropy(ground_truth_onehot, predictions, binary=False):
 
 # objects to be used in the architectures
 
+
 class ConvBlock(Layer):
     """TF Keras layer overriden to represent a convolutional block."""
 
-    def __init__(self, filters=(64, ), kernel_sizes=((3, 3), ),
-                 activations=(k_layers.ReLU, ), paddings=('same', ),
-                 dilation_rate=1, batch_norm=True, dropout_rate=None, depth=2,
-                 strides=((1, 1), ), kernel_initializer='glorot_uniform',
-                 use_bias=True, name='conv_block', **kwargs):
+    def __init__(
+        self,
+        filters=(64,),
+        kernel_sizes=((3, 3),),
+        activations=(k_layers.ReLU,),
+        paddings=('same',),
+        dilation_rate=1,
+        batch_norm=True,
+        dropout_rate=None,
+        depth=2,
+        strides=((1, 1),),
+        kernel_initializer='glorot_uniform',
+        use_bias=True,
+        name='conv_block',
+        **kwargs,
+    ):
         """Create a block of convolutional layers.
 
         Each of them could be followed by a dropout layer, activation
@@ -467,21 +534,25 @@ class ConvBlock(Layer):
         """Instantiate layers lying between the input and the classifier."""
         for i in range(self.depth):
             self.conv_layers.append(
-                Conv2D(self.filters[i], self.kernel_sizes[i],
-                       padding=self.paddings[i],
-                       dilation_rate=self.dilation_rate,
-                       strides=self.strides[i],
-                       kernel_initializer=self.kernel_initializer,
-                       use_bias=self.use_bias,
-                       name='{}_conv{}'.format(self.base_name, i)))
+                Conv2D(
+                    self.filters[i],
+                    self.kernel_sizes[i],
+                    padding=self.paddings[i],
+                    dilation_rate=self.dilation_rate,
+                    strides=self.strides[i],
+                    kernel_initializer=self.kernel_initializer,
+                    use_bias=self.use_bias,
+                    name='{}_conv{}'.format(self.base_name, i),
+                )
+            )
             if self.dropout_rate is not None:
                 self.dropouts.append(Dropout(rate=self.dropout_rate))
             if self.activations[i] is not None:
                 self.activation_layers.append(self.activations[i]())
             if self.batch_norm is True:
                 self.batch_norms.append(
-                    BatchNormalization(
-                        name='{}_bn{}'.format(self.base_name, i)))
+                    BatchNormalization(name='{}_bn{}'.format(self.base_name, i))
+                )
 
     def get_config(self):
         """Return the configuration of the convolutional block.
@@ -494,17 +565,19 @@ class ConvBlock(Layer):
         """
         config = super(ConvBlock, self).get_config()
 
-        config.update(filters=self.filters,
-                      kernel_sizes=self.kernel_sizes,
-                      activations=self.activations,
-                      paddings=self.paddings,
-                      dilation_rate=self.dilation_rate,
-                      batch_norm=self.batch_norm,
-                      dropout_rate=self.dropout_rate,
-                      depth=self.depth,
-                      strides=self.strides,
-                      kernel_initializer=self.kernel_initializer,
-                      use_bias=self.use_bias)
+        config.update(
+            filters=self.filters,
+            kernel_sizes=self.kernel_sizes,
+            activations=self.activations,
+            paddings=self.paddings,
+            dilation_rate=self.dilation_rate,
+            batch_norm=self.batch_norm,
+            dropout_rate=self.dropout_rate,
+            depth=self.depth,
+            strides=self.strides,
+            kernel_initializer=self.kernel_initializer,
+            use_bias=self.use_bias,
+        )
 
         return config
 
@@ -521,9 +594,18 @@ class ResBlock(Layer):
     implemented as I have never seen it anywhere in use.
     """
 
-    def __init__(self, filters=(64, 64, 256), kernel_size=(3, 3),
-                 activation=k_layers.ReLU, batch_norm=True, dropout_rate=None,
-                 strides=(2, 2), use_bias=True, name='res_block', **kwargs):
+    def __init__(
+        self,
+        filters=(64, 64, 256),
+        kernel_size=(3, 3),
+        activation=k_layers.ReLU,
+        batch_norm=True,
+        dropout_rate=None,
+        strides=(2, 2),
+        use_bias=True,
+        name='res_block',
+        **kwargs,
+    ):
         """Create a residual block.
 
         :param filters: set of numbers of filters for each conv layer
@@ -579,37 +661,33 @@ class ResBlock(Layer):
 
     def instantiate_layers(self):
         """Instantiate layers lying between the input and the output."""
-        self.bottleneck = ConvBlock(filters=self.filters,
-                                    kernel_sizes=((1, 1),
-                                                  self.kernel_size,
-                                                  (1, 1)),
-                                    activations=(self.activation,
-                                                 self.activation,
-                                                 None),
-                                    paddings=('valid',
-                                              'same',
-                                              'valid'),
-                                    batch_norm=self.batch_norm,
-                                    dropout_rate=self.dropout_rate,
-                                    depth=3,
-                                    strides=(self.strides,
-                                             (1, 1),
-                                             (1, 1)),
-                                    use_bias=self.use_bias,
-                                    kernel_initializer='he_normal',
-                                    name=self.base_name + '_bottleneck')
+        self.bottleneck = ConvBlock(
+            filters=self.filters,
+            kernel_sizes=((1, 1), self.kernel_size, (1, 1)),
+            activations=(self.activation, self.activation, None),
+            paddings=('valid', 'same', 'valid'),
+            batch_norm=self.batch_norm,
+            dropout_rate=self.dropout_rate,
+            depth=3,
+            strides=(self.strides, (1, 1), (1, 1)),
+            use_bias=self.use_bias,
+            kernel_initializer='he_normal',
+            name=self.base_name + '_bottleneck',
+        )
 
-        self.shortcut = ConvBlock(filters=(self.filters[-1], ),
-                                  kernel_sizes=((1, 1), ),
-                                  activations=(None, ),
-                                  paddings=('valid', ),
-                                  batch_norm=self.batch_norm,
-                                  dropout_rate=self.dropout_rate,
-                                  depth=1,
-                                  strides=(self.strides, ),
-                                  use_bias=self.use_bias,
-                                  kernel_initializer='he_normal',
-                                  name=self.base_name + '_shortcut')
+        self.shortcut = ConvBlock(
+            filters=(self.filters[-1],),
+            kernel_sizes=((1, 1),),
+            activations=(None,),
+            paddings=('valid',),
+            batch_norm=self.batch_norm,
+            dropout_rate=self.dropout_rate,
+            depth=1,
+            strides=(self.strides,),
+            use_bias=self.use_bias,
+            kernel_initializer='he_normal',
+            name=self.base_name + '_shortcut',
+        )
 
         self.add = Add()
         self.activation_layer = self.activation()
@@ -625,13 +703,15 @@ class ResBlock(Layer):
         """
         config = super(ResBlock, self).get_config()
 
-        config.update(filters=self.filters,
-                      kernel_size=self.kernel_size,
-                      activation=self.activation,
-                      batch_norm=self.batch_norm,
-                      dropout_rate=self.dropout_rate,
-                      strides=self.strides,
-                      use_bias=self.use_bias)
+        config.update(
+            filters=self.filters,
+            kernel_size=self.kernel_size,
+            activation=self.activation,
+            batch_norm=self.batch_norm,
+            dropout_rate=self.dropout_rate,
+            strides=self.strides,
+            use_bias=self.use_bias,
+        )
 
         return config
 
@@ -644,9 +724,18 @@ class IdentityBlock(Layer):
     design was enhanced by the option to perform dropout.
     """
 
-    def __init__(self, filters=(64, 64, 256), kernel_size=(3, 3),
-                 activation=k_layers.ReLU, batch_norm=True, dropout_rate=None,
-                 strides=(2, 2), use_bias=True, name='res_block', **kwargs):
+    def __init__(
+        self,
+        filters=(64, 64, 256),
+        kernel_size=(3, 3),
+        activation=k_layers.ReLU,
+        batch_norm=True,
+        dropout_rate=None,
+        strides=(2, 2),
+        use_bias=True,
+        name='res_block',
+        **kwargs,
+    ):
         """Create a residual block.
 
         :param filters: set of numbers of filters for each conv layer
@@ -700,25 +789,19 @@ class IdentityBlock(Layer):
 
     def instantiate_layers(self):
         """Instantiate layers lying between the input and the output."""
-        self.bottleneck = ConvBlock(filters=self.filters,
-                                    kernel_sizes=((1, 1),
-                                                  self.kernel_size,
-                                                  (1, 1)),
-                                    activations=(self.activation,
-                                                 self.activation,
-                                                 None),
-                                    paddings=('valid',
-                                              'same',
-                                              'valid'),
-                                    batch_norm=self.batch_norm,
-                                    dropout_rate=self.dropout_rate,
-                                    depth=3,
-                                    strides=((1, 1),
-                                             (1, 1),
-                                             (1, 1)),
-                                    use_bias=self.use_bias,
-                                    kernel_initializer='he_normal',
-                                    name=self.base_name + '_bottleneck')
+        self.bottleneck = ConvBlock(
+            filters=self.filters,
+            kernel_sizes=((1, 1), self.kernel_size, (1, 1)),
+            activations=(self.activation, self.activation, None),
+            paddings=('valid', 'same', 'valid'),
+            batch_norm=self.batch_norm,
+            dropout_rate=self.dropout_rate,
+            depth=3,
+            strides=((1, 1), (1, 1), (1, 1)),
+            use_bias=self.use_bias,
+            kernel_initializer='he_normal',
+            name=self.base_name + '_bottleneck',
+        )
 
         self.add = Add()
         self.activation_layer = self.activation()
@@ -734,13 +817,15 @@ class IdentityBlock(Layer):
         """
         config = super(IdentityBlock, self).get_config()
 
-        config.update(filters=self.filters,
-                      kernel_size=self.kernel_size,
-                      activation=self.activation,
-                      batch_norm=self.batch_norm,
-                      dropout_rate=self.dropout_rate,
-                      strides=self.strides,
-                      use_bias=self.use_bias)
+        config.update(
+            filters=self.filters,
+            kernel_size=self.kernel_size,
+            activation=self.activation,
+            batch_norm=self.batch_norm,
+            dropout_rate=self.dropout_rate,
+            strides=self.strides,
+            use_bias=self.use_bias,
+        )
 
         return config
 
@@ -751,10 +836,19 @@ class ASPP(Layer):
     For the original paper, see <https://arxiv.org/pdf/1606.00915.pdf>.
     """
 
-    def __init__(self, filters=256, kernel_size=(3, 3),
-                 activation=k_layers.ReLU, batch_norm=True, dropout_rate=None,
-                 dilation_rates=(1, 6, 12, 18, 24), pool_dims=(16, 16),
-                 use_bias=True, name='aspp', **kwargs):
+    def __init__(
+        self,
+        filters=256,
+        kernel_size=(3, 3),
+        activation=k_layers.ReLU,
+        batch_norm=True,
+        dropout_rate=None,
+        dilation_rates=(1, 6, 12, 18, 24),
+        pool_dims=(16, 16),
+        use_bias=True,
+        name='aspp',
+        **kwargs,
+    ):
         """Create an atrous spatial pyramid pooling block.
 
         :param filters: number of filters for conv layers
@@ -822,23 +916,29 @@ class ASPP(Layer):
 
     def instantiate_layers(self):
         """Instantiate layers lying between the input and the output."""
-        self.pool_blocks = [AveragePooling2D(pool_size=(self.pool_dims[0],
-                                                        self.pool_dims[1]),
-                                             name='average_pooling'),
-                            ConvBlock(filters=(self.filters,),
-                                      kernel_sizes=((1, 1),),
-                                      activations=(self.activation, ),
-                                      paddings=('same',),
-                                      dilation_rate=1,
-                                      batch_norm=self.batch_norm,
-                                      dropout_rate=self.dropout_rate,
-                                      depth=1,
-                                      kernel_initializer='he_normal',
-                                      use_bias=self.use_bias,
-                                      name='ASPP_convblock_pool'),
-                            UpSampling2D(size=[self.pool_dims[0] // 1,
-                                               self.pool_dims[1] // 1],
-                                         interpolation='bilinear')]
+        self.pool_blocks = [
+            AveragePooling2D(
+                pool_size=(self.pool_dims[0], self.pool_dims[1]),
+                name='average_pooling',
+            ),
+            ConvBlock(
+                filters=(self.filters,),
+                kernel_sizes=((1, 1),),
+                activations=(self.activation,),
+                paddings=('same',),
+                dilation_rate=1,
+                batch_norm=self.batch_norm,
+                dropout_rate=self.dropout_rate,
+                depth=1,
+                kernel_initializer='he_normal',
+                use_bias=self.use_bias,
+                name='ASPP_convblock_pool',
+            ),
+            UpSampling2D(
+                size=[self.pool_dims[0] // 1, self.pool_dims[1] // 1],
+                interpolation='bilinear',
+            ),
+        ]
 
         for dilation_rate in self.dilation_rates:
             if dilation_rate == 1:
@@ -847,32 +947,37 @@ class ASPP(Layer):
                 kernel_size = self.kernel_size
 
             self.conv_blocks.append(
-                ConvBlock(filters=(self.filters, ),
-                          kernel_sizes=(kernel_size, ),
-                          activations=(self.activation, ),
-                          paddings=('same', ),
-                          dilation_rate=dilation_rate,
-                          batch_norm=self.batch_norm,
-                          dropout_rate=self.dropout_rate,
-                          depth=1,
-                          kernel_initializer='he_normal',
-                          use_bias=self.use_bias,
-                          name=f'ASPP_convblock_d{dilation_rate}'))
+                ConvBlock(
+                    filters=(self.filters,),
+                    kernel_sizes=(kernel_size,),
+                    activations=(self.activation,),
+                    paddings=('same',),
+                    dilation_rate=dilation_rate,
+                    batch_norm=self.batch_norm,
+                    dropout_rate=self.dropout_rate,
+                    depth=1,
+                    kernel_initializer='he_normal',
+                    use_bias=self.use_bias,
+                    name=f'ASPP_convblock_d{dilation_rate}',
+                )
+            )
 
         # concatenation layer
         self.concat = Concatenate(name='ASPP_concat')
 
         # output layer
-        self.output_layer = ConvBlock(filters=(self.filters, ),
-                                      kernel_sizes=(1, ),
-                                      activations=(self.activation, ),
-                                      paddings=('same', ),
-                                      dilation_rate=1,
-                                      dropout_rate=self.dropout_rate,
-                                      depth=1,
-                                      kernel_initializer='he_normal',
-                                      use_bias=self.use_bias,
-                                      name=f'ASPP_convblock_final')
+        self.output_layer = ConvBlock(
+            filters=(self.filters,),
+            kernel_sizes=(1,),
+            activations=(self.activation,),
+            paddings=('same',),
+            dilation_rate=1,
+            dropout_rate=self.dropout_rate,
+            depth=1,
+            kernel_initializer='he_normal',
+            use_bias=self.use_bias,
+            name='ASPP_convblock_final',
+        )
 
     def get_config(self):
         """Return the configuration of the residual block.
@@ -885,14 +990,16 @@ class ASPP(Layer):
         """
         config = super(ASPP, self).get_config()
 
-        config.update(filters=self.filters,
-                      kernel_size=self.kernel_size,
-                      activation=self.activation,
-                      batch_norm=self.batch_norm,
-                      dropout_rate=self.dropout_rate,
-                      dilation_rates=self.dilation_rates,
-                      pool_dims=self.pool_dims,
-                      use_bias=self.use_bias)
+        config.update(
+            filters=self.filters,
+            kernel_size=self.kernel_size,
+            activation=self.activation,
+            batch_norm=self.batch_norm,
+            dropout_rate=self.dropout_rate,
+            dilation_rates=self.dilation_rates,
+            pool_dims=self.pool_dims,
+            use_bias=self.use_bias,
+        )
 
         return config
 
@@ -904,8 +1011,14 @@ class MyMaxPooling(Layer):
     to be shared during the decoder phase.
     """
 
-    def __init__(self, pool_size=(2, 2), strides=None, padding='valid',
-                 data_format=None, **kwargs):
+    def __init__(
+        self,
+        pool_size=(2, 2),
+        strides=None,
+        padding='valid',
+        data_format=None,
+        **kwargs,
+    ):
         """Construct the object and keep important variables.
 
         :param pool_size: Integer or tuple of 2 integers, window size over
@@ -939,8 +1052,11 @@ class MyMaxPooling(Layer):
         strides = (1, self.strides[0], self.strides[1], 1)
 
         pooled, argmax = self.max_pool_with_argmax(
-            inputs, ksize=ksize, strides=strides,
-            padding=self.padding.upper(), include_batch_in_index=True
+            inputs,
+            ksize=ksize,
+            strides=strides,
+            padding=self.padding.upper(),
+            include_batch_in_index=True,
         )
 
         return pooled, argmax
@@ -953,37 +1069,59 @@ class MyMaxPooling(Layer):
 
         return max_pool_with_argmax
 
-    def max_pool_with_argmax_gpu(self, inputs, ksize, strides, padding,
-                                 include_batch_in_index):
+    def max_pool_with_argmax_gpu(
+        self, inputs, ksize, strides, padding, include_batch_in_index
+    ):
         def dim_condition(i, dimension_size, stride):
             return i < dimension_size // stride
 
-        def run_bands(k, argmax, inputs_window_flat, columns_shift,
-                      lines_shift, strides, inputs_shape):
+        def run_bands(
+            k,
+            argmax,
+            inputs_window_flat,
+            columns_shift,
+            lines_shift,
+            strides,
+            inputs_shape,
+        ):
             m = tf.argmax(inputs_window_flat[:, k], output_type=tf.int32)
-            m = (m % strides[2] + columns_shift + m // strides[2] *
-                 inputs_shape[2] + lines_shift) * inputs_shape[3] + k
+            m = (
+                m % strides[2]
+                + columns_shift
+                + m // strides[2] * inputs_shape[2]
+                + lines_shift
+            ) * inputs_shape[3] + k
             argmax = argmax.write(k, m)
             return k + 1, argmax
 
         def run_rows(j, argmax, inputs, channels, strides, i):
-            inputs_window = inputs[0, strides[1] * i:strides[1] * (i + 1),
-                            strides[2] * j:strides[2] * (j + 1), :]
+            inputs_window = inputs[
+                0,
+                strides[1] * i : strides[1] * (i + 1),
+                strides[2] * j : strides[2] * (j + 1),
+                :,
+            ]
             inputs_window_flat = tf.reshape(inputs_window, [-1, channels])
 
             columns_shift = j * strides[2]
             lines_shift = i * strides[1] * inputs.shape[2]
             k_init = tf.constant(0, dtype=tf.int32)
-            argmax_init = tf.TensorArray(dtype=tf.int32,
-                                         size=channels // strides[3])
+            argmax_init = tf.TensorArray(
+                dtype=tf.int32, size=channels // strides[3]
+            )
 
             _, argmax_result = tf.while_loop(
                 lambda k, argmax: dim_condition(k, inputs.shape[3], strides[3]),
                 lambda k, argmax: run_bands(
-                    k, argmax, inputs_window_flat, columns_shift,
-                    lines_shift, strides, inputs.shape
+                    k,
+                    argmax,
+                    inputs_window_flat,
+                    columns_shift,
+                    lines_shift,
+                    strides,
+                    inputs.shape,
                 ),
-                (k_init, argmax_init)
+                (k_init, argmax_init),
             )
 
             argmax_list = argmax_result.stack()
@@ -1001,45 +1139,43 @@ class MyMaxPooling(Layer):
                 lambda j, argmax: run_rows(
                     j, argmax, inputs, inputs.shape[3], strides, i
                 ),
-                (j_init, argmax_init)
+                (j_init, argmax_init),
             )
 
             argmax_stack = argmax_result.stack()
 
             updates = tf.reshape(argmax_stack, [1, *argmax_stack.shape])
             indices = tf.reshape(i, [1, 1])
-            argmax_accum = tf.tensor_scatter_nd_update(argmax_accum, indices,
-                                                       updates)
+            argmax_accum = tf.tensor_scatter_nd_update(
+                argmax_accum, indices, updates
+            )
 
             return i + 1, argmax_accum
 
         # compute pooled tensors
-        pooled = tf.nn.max_pool2d(inputs, ksize=ksize, strides=strides,
-                                  padding=self.padding.upper())
+        pooled = tf.nn.max_pool2d(
+            inputs, ksize=ksize, strides=strides, padding=self.padding.upper()
+        )
 
-        argmax_accum_init = tf.zeros(dtype=tf.int32,
-                                     shape=[inputs.shape[1] // 2,
-                                            inputs.shape[2] // 2,
-                                            inputs.shape[3]])
+        argmax_accum_init = tf.zeros(
+            dtype=tf.int32,
+            shape=[inputs.shape[1] // 2, inputs.shape[2] // 2, inputs.shape[3]],
+        )
         i_init = tf.constant(0, dtype=tf.int32)
 
         # TODO: Support batch_size
         _, argmax_accum_result = tf.while_loop(
             lambda i, argmax_accum: dim_condition(
-                i, inputs.shape[1], strides[1]),
-            lambda i, argmax_accum: run_cols(
-                i, argmax_accum, inputs, strides
+                i, inputs.shape[1], strides[1]
             ),
-            (i_init, argmax_accum_init)
+            lambda i, argmax_accum: run_cols(i, argmax_accum, inputs, strides),
+            (i_init, argmax_accum_init),
         )
 
         # TODO: I believe this both expand_dims and the casting is
         #       unnecessary here - have to test
         argmax = tf.expand_dims(
-            tf.cast(
-                argmax_accum_result, tf.int32, name='cast_maxpooling'
-            ),
-            0
+            tf.cast(argmax_accum_result, tf.int32, name='cast_maxpooling'), 0
         )
 
         return pooled, argmax
@@ -1053,8 +1189,10 @@ class MyMaxPooling(Layer):
         :return: list describing the layer shape
         """
         ratio = (1, 2, 2, 1)
-        output_shape = [dim // ratio[idx] if dim is not None else None
-                        for idx, dim in enumerate(input_shape)]
+        output_shape = [
+            dim // ratio[idx] if dim is not None else None
+            for idx, dim in enumerate(input_shape)
+        ]
         output_shape = tuple(output_shape)
         return output_shape, output_shape
 
@@ -1079,10 +1217,12 @@ class MyMaxPooling(Layer):
         """
         config = super(MyMaxPooling, self).get_config()
 
-        config.update(pool_size=self.pool_size,
-                      padding=self.padding,
-                      strides=self.strides,
-                      data_format=self.data_format)
+        config.update(
+            pool_size=self.pool_size,
+            padding=self.padding,
+            strides=self.strides,
+            data_format=self.data_format,
+        )
 
         return config
 
@@ -1129,15 +1269,19 @@ class MyMaxUnpooling(Layer):
             raise LayerDefinitionError('indices have to be specified')
 
         input_shape = tf.shape(x, out_type='int32')
-        output_shape_complete = (input_shape[0],
-                                 self.output_shape_[1],
-                                 self.output_shape_[2],
-                                 self.output_shape_[3])
+        output_shape_complete = (
+            input_shape[0],
+            self.output_shape_[1],
+            self.output_shape_[2],
+            self.output_shape_[3],
+        )
 
         # unpool
-        unpooled = tf.scatter_nd(keras.expand_dims(keras.flatten(indices)),
-                                 keras.flatten(x),
-                                 (keras.prod(output_shape_complete), ))
+        unpooled = tf.scatter_nd(
+            keras.expand_dims(keras.flatten(indices)),
+            keras.flatten(x),
+            (keras.prod(output_shape_complete),),
+        )
 
         # reshape
         unpooled = keras.reshape(unpooled, output_shape_complete)
@@ -1155,8 +1299,7 @@ class MyMaxUnpooling(Layer):
         """
         config = super(MyMaxUnpooling, self).get_config()
 
-        config.update(pool_size=self.pool_size,
-                      data_format=self.data_format)
+        config.update(pool_size=self.pool_size, data_format=self.data_format)
 
         return config
 
@@ -1167,8 +1310,12 @@ class MyMaxUnpooling(Layer):
             tuples (one per output tensor of the layer)
         :return: list describing the layer shape
         """
-        return (input_shape[0][0], self.output_shape_[1],
-                self.output_shape_[2], self.output_shape_[3])
+        return (
+            input_shape[0][0],
+            self.output_shape_[1],
+            self.output_shape_[2],
+            self.output_shape_[3],
+        )
 
     def build(self, input_shape):
         """Create the input_shape class variable and build the layer.
@@ -1176,9 +1323,11 @@ class MyMaxUnpooling(Layer):
         :param input_shape: Instance of TensorShape, or list of instances
             of TensorShape if the layer expects a list of inputs
         """
-        self.output_shape_ = (input_shape[0][0],
-                              input_shape[0][1] * self.pool_size[0],
-                              input_shape[0][2] * self.pool_size[1],
-                              input_shape[0][3])
+        self.output_shape_ = (
+            input_shape[0][0],
+            input_shape[0][1] * self.pool_size[0],
+            input_shape[0][2] * self.pool_size[1],
+            input_shape[0][3],
+        )
 
         super(MyMaxUnpooling, self).build(input_shape)

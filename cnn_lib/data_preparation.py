@@ -11,9 +11,18 @@ from osgeo import gdal
 from cnn_lib.cnn_exceptions import DatasetError
 
 
-def generate_dataset_structure(data_dir, input_regex, tensor_shape=(256, 256),
-                               val_set_pct=0.2, filter_by_class=None,
-                               augment=True, ignore_masks=False, padding_mode=None, mask_ignore_value=255, verbose=1):
+def generate_dataset_structure(
+    data_dir,
+    input_regex,
+    tensor_shape=(256, 256),
+    val_set_pct=0.2,
+    filter_by_class=None,
+    augment=True,
+    ignore_masks=False,
+    padding_mode=None,
+    mask_ignore_value=255,
+    verbose=1,
+):
     """Generate the expected dataset structure.
 
     Will generate directories train_images, train_masks, val_images and
@@ -50,27 +59,51 @@ def generate_dataset_structure(data_dir, input_regex, tensor_shape=(256, 256),
 
     # tile and write samples
     filtered_files = sorted(
-        glob.glob(os.path.join(data_dir, f'*{input_regex}*')))
+        glob.glob(os.path.join(data_dir, f'*{input_regex}*'))
+    )
     source_images = [i for i in filtered_files if 'image' in i]
     for i in source_images:
-        tile(i, i.replace('image', 'label'), tensor_shape,
-             filter_by_class, augment, dir_names, ignore_masks, padding_mode, mask_ignore_value)
+        tile(
+            i,
+            i.replace('image', 'label'),
+            tensor_shape,
+            filter_by_class,
+            augment,
+            dir_names,
+            ignore_masks,
+            padding_mode,
+            mask_ignore_value,
+        )
 
     # check if there are some training data
     train_images_nr = len(os.listdir(os.path.join(data_dir, 'train_images')))
     val_images_nr = len(os.listdir(os.path.join(data_dir, 'val_images')))
     if train_images_nr + val_images_nr == 0:
-        raise DatasetError('No training samples created. Check the size of '
-                           'the images in the data_dir or the appearance of '
-                           'the classes you are interested in in labels')
+        raise DatasetError(
+            'No training samples created. Check the size of '
+            'the images in the data_dir or the appearance of '
+            'the classes you are interested in in labels'
+        )
     elif verbose > 0:
-        print('Created {} training and {} validation samples from {} '
-              'provided image(s).'.format(train_images_nr, val_images_nr,
-                                          len(source_images)))
+        print(
+            'Created {} training and {} validation samples from {} '
+            'provided image(s).'.format(
+                train_images_nr, val_images_nr, len(source_images)
+            )
+        )
 
 
-def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
-         augment=True, dir_names=None, ignore_masks=False, padding_mode=None, mask_ignore_value=255):
+def tile(
+    scene_path,
+    labels_path,
+    tensor_shape,
+    filter_by_class=None,
+    augment=True,
+    dir_names=None,
+    ignore_masks=False,
+    padding_mode=None,
+    mask_ignore_value=255,
+):
     """Tile the big scene into smaller samples and write them.
 
     If filter_by_class is not None, only samples containing at least one of
@@ -97,7 +130,7 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
     if filter_by_class is not None:
         filter_by_class = [int(i) for i in filter_by_class.split(',')]
 
-    driver = gdal.GetDriverByName("GTiff")
+    driver = gdal.GetDriverByName('GTiff')
 
     # single open for all scene metadata
     scene_src = gdal.Open(scene_path, gdal.GA_ReadOnly)
@@ -129,14 +162,20 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
     geo_transform = list(raw_geo)
 
     for i in range(0, nr_cols, cols_step):
-        i, actual_cols, right_pad = _resolve_tile_edge(i, cols_step, nr_cols, padding_mode)
+        i, actual_cols, right_pad = _resolve_tile_edge(
+            i, cols_step, nr_cols, padding_mode
+        )
 
         for j in range(0, nr_rows, rows_step):
-            j, actual_rows, bottom_pad = _resolve_tile_edge(j, rows_step, nr_rows, padding_mode)
+            j, actual_rows, bottom_pad = _resolve_tile_edge(
+                j, rows_step, nr_rows, padding_mode
+            )
 
             # if filtering, check if it makes sense to continue
             if filter_by_class is not None and ignore_masks is False:
-                labels_cropped = labels_np[j:j + actual_rows, i:i + actual_cols]
+                labels_cropped = labels_np[
+                    j : j + actual_rows, i : i + actual_cols
+                ]
                 if not np.isin(labels_cropped, filter_by_class).any():
                     # no occurrence of classes to filter by - continue with
                     # next patch
@@ -147,17 +186,24 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
             # read all bands at once as a (bands, rows, cols) array
             scene_array = scene_src.ReadAsArray(i, j, actual_cols, actual_rows)
             if right_pad > 0 or bottom_pad > 0:
-                scene_array = np.pad(scene_array, ((0, 0), (0, bottom_pad), (0, right_pad)),
-                                     mode=padding_mode)
+                scene_array = np.pad(
+                    scene_array,
+                    ((0, 0), (0, bottom_pad), (0, right_pad)),
+                    mode=padding_mode,
+                )
 
             geo_transform[0] = raw_geo[0] + i * raw_geo[1]
             geo_transform[3] = raw_geo[3] + j * raw_geo[5]
 
             if ignore_masks is False:
-                mask_array = labels_np[j:j + actual_rows, i:i + actual_cols]
+                mask_array = labels_np[j : j + actual_rows, i : i + actual_cols]
                 if right_pad > 0 or bottom_pad > 0:
-                    mask_array = np.pad(mask_array, ((0, bottom_pad), (0, right_pad)),
-                                        mode='constant', constant_values=mask_ignore_value)
+                    mask_array = np.pad(
+                        mask_array,
+                        ((0, bottom_pad), (0, right_pad)),
+                        mode='constant',
+                        constant_values=mask_ignore_value,
+                    )
             else:
                 mask_array = None
 
@@ -166,27 +212,35 @@ def tile(scene_path, labels_path, tensor_shape, filter_by_class=None,
                 suffix = f'_rot{rot_k * 90}' if rot_k > 0 else ''
 
                 out_scene_path = os.path.join(
-                    scene_dir, '{}_images'.format(dir_name),
-                    scene_name + f'_{i}_{j}{suffix}.tif')
-                out_scene = driver.Create(out_scene_path,
-                                          cols_step, rows_step,
-                                          nr_bands, data_type)
+                    scene_dir,
+                    '{}_images'.format(dir_name),
+                    scene_name + f'_{i}_{j}{suffix}.tif',
+                )
+                out_scene = driver.Create(
+                    out_scene_path, cols_step, rows_step, nr_bands, data_type
+                )
                 out_scene.SetGeoTransform(geo_transform)
                 out_scene.SetProjection(projection)
                 for band_i in range(nr_bands):
-                    out_scene.GetRasterBand(band_i + 1).WriteArray(np.rot90(scene_array[band_i], rot_k))
+                    out_scene.GetRasterBand(band_i + 1).WriteArray(
+                        np.rot90(scene_array[band_i], rot_k)
+                    )
                 out_scene = None
 
                 if ignore_masks is False:
                     out_mask_path = os.path.join(
-                        scene_dir, '{}_masks'.format(dir_name),
-                        scene_name + f'_{i}_{j}{suffix}.tif')
-                    out_mask = driver.Create(out_mask_path,
-                                             cols_step, rows_step,
-                                             1, gdal.GDT_UInt16)
+                        scene_dir,
+                        '{}_masks'.format(dir_name),
+                        scene_name + f'_{i}_{j}{suffix}.tif',
+                    )
+                    out_mask = driver.Create(
+                        out_mask_path, cols_step, rows_step, 1, gdal.GDT_UInt16
+                    )
                     out_mask.SetGeoTransform(geo_transform)
                     out_mask.SetProjection(projection)
-                    out_mask.GetRasterBand(1).WriteArray(np.rot90(mask_array, rot_k))
+                    out_mask.GetRasterBand(1).WriteArray(
+                        np.rot90(mask_array, rot_k)
+                    )
                     out_mask = None
     scene_src = None
 

@@ -15,7 +15,8 @@ def get_codings(description_file):
     :return: list of label codes, list of label names, id2code dictionary
     """
     label_codes, label_names = zip(
-        *[parse_label_code(i) for i in open(description_file)])
+        *[parse_label_code(i) for i in open(description_file)]
+    )
     label_codes, label_names = list(label_codes), list(label_names)
     id2code = {i: j for i, j in enumerate(label_codes)}
 
@@ -95,13 +96,13 @@ def model_replace_nans(weights):
     """
     import numpy as np
 
-
     valid_weights = []
     for weights_layer in weights:
         if np.isnan(weights_layer).any():
             valid_weights.append(np.nan_to_num(weights_layer))
-            tf.print('NaN values found in the weights -> they are changed '
-                     'to zeros')
+            tf.print(
+                'NaN values found in the weights -> they are changed to zeros'
+            )
         else:
             valid_weights.append(weights_layer)
 

@@ -207,8 +207,9 @@ def tile(
             else:
                 mask_array = None
 
+            dir_name = next(dir_names)
+
             for rot_k in rotations:
-                dir_name = next(dir_names)
                 suffix = f'_rot{rot_k * 90}' if rot_k > 0 else ''
 
                 out_scene_path = os.path.join(

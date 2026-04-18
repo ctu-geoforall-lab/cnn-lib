@@ -207,8 +207,10 @@ def tile(
             else:
                 mask_array = None
 
-            for rot_k in rotations:
-                dir_name = next(dir_names)
+            dir_name = next(dir_names)
+            active_rotations = rotations if dir_name == 'train' else (0,)
+
+            for rot_k in active_rotations:
                 suffix = f'_rot{rot_k * 90}' if rot_k > 0 else ''
 
                 out_scene_path = os.path.join(

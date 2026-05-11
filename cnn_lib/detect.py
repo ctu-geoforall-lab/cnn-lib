@@ -67,6 +67,7 @@ def run(
         if int(tf.__version__.split('.')[1]) < 4:
             tf.random.set_seed(seed)
         else:
+            tf.random.set_seed(seed)
             tf.keras.utils.set_random_seed(seed)
 
     model = create_model(

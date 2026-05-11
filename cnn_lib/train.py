@@ -72,6 +72,7 @@ def run(
         if int(tf.__version__.split('.')[1]) < 4:
             tf.random.set_seed(seed)
         else:
+            tf.random.set_seed(seed)
             tf.keras.utils.set_random_seed(seed)
 
     model = create_model(
@@ -107,6 +108,7 @@ def run(
 
     # load weights if the model is supposed to do so
     if operation == 'fine-tune':
+        _metrics = [m for m in model.metrics if m.name != 'loss']
         model.load_weights(in_weights_path, skip_mismatch=skip_mismatch)
         if frozen_layer_groups:
             if frozen_layer_groups == ['all']:
@@ -117,8 +119,7 @@ def run(
             model.compile(
                 optimizer=model.optimizer,
                 loss=model.loss,
-                metrics=model.compiled_metrics._metrics,
-            )
+                metrics=_metrics)
 
     train_generator = AugmentGenerator(
         data_dir,

@@ -374,9 +374,9 @@ def categorical_tversky(
     batch_valid = tf.cast(
         tf.reduce_sum(pixel_has_class, axis=(1, 2)) > 0, tf.float32
     )
-    tversky = tf.reduce_sum(tversky * tf.expand_dims(batch_valid, -1), axis=0) / (
-            tf.reduce_sum(batch_valid) + 1e-7
-    )
+    tversky = tf.reduce_sum(
+        tversky * tf.expand_dims(batch_valid, -1), axis=0
+    ) / (tf.reduce_sum(batch_valid) + 1e-7)
 
     # reduce mean for classes and multiply them by weights
     loss = 1 - tf.reduce_mean(weight_tensor * tversky)
@@ -414,7 +414,7 @@ def masked_crossentropy(ground_truth_onehot, predictions, binary=False):
 
     per_pixel_loss = loss_fn(ground_truth_onehot, predictions)
     masked_loss = per_pixel_loss * valid_mask
-    loss = tf.reduce_sum(masked_loss) / (tf.reduce_sum(valid_mask)+1e-7)
+    loss = tf.reduce_sum(masked_loss) / (tf.reduce_sum(valid_mask) + 1e-7)
 
     return loss
 

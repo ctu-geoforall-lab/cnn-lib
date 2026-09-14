@@ -74,6 +74,7 @@ def run(
         else:
             tf.random.set_seed(seed)
             tf.keras.utils.set_random_seed(seed)
+        utils.set_determinism(seed)
 
     model = create_model(
         model,

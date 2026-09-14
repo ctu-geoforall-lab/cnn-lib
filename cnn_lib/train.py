@@ -67,14 +67,18 @@ def run(
         os.path.join(data_dir, 'label_colors.txt')
     )
 
-    # set TensorFlow seed
+    # set the seeds and make the op execution deterministic
     if seed is not None:
         if int(tf.__version__.split('.')[1]) < 4:
             tf.random.set_seed(seed)
         else:
             tf.random.set_seed(seed)
             tf.keras.utils.set_random_seed(seed)
-        utils.set_determinism(seed)
+        try:
+            tf.config.experimental.enable_op_determinism()
+        except AttributeError:
+            # TF < 2.8
+            os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
     model = create_model(
         model,

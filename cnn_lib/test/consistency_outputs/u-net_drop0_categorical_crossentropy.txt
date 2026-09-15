@@ -87,6 +87,6 @@ Model: "u-net_drop0_categorical_crossentropy"
  Trainable params: 31,048,835 (118.44 MB)
  Non-trainable params: 11,776 (46.00 KB)
 
-Epoch 1: val_loss improved from inf to 1321.33557, saving model to /tmp/output_u-net_drop0_categorical_crossentropy/model.weights.h5
+Epoch 1: val_loss improved from inf to 133.23862, saving model to /tmp/output_u-net_drop0_categorical_crossentropy/model.weights.h5
 
-Epoch 2: val_loss improved from 1321.33557 to 3.71835, saving model to /tmp/output_u-net_drop0_categorical_crossentropy/model.weights.h5
+Epoch 2: val_loss improved from 133.23862 to 18.26405, saving model to /tmp/output_u-net_drop0_categorical_crossentropy/model.weights.h5

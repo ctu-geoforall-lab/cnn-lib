@@ -89,6 +89,6 @@ Model: "segnet_drop0_categorical_crossentropy"
  Trainable params: 62,486,211 (238.37 MB)
  Non-trainable params: 20,992 (82.00 KB)
 
-Epoch 1: val_loss improved from inf to 12067.83887, saving model to /tmp/output_segnet_drop0_categorical_crossentropy/model.weights.h5
+Epoch 1: val_loss improved from inf to 1318.80090, saving model to /tmp/output_segnet_drop0_categorical_crossentropy/model.weights.h5
 
-Epoch 2: val_loss improved from 12067.83887 to 29.32189, saving model to /tmp/output_segnet_drop0_categorical_crossentropy/model.weights.h5
+Epoch 2: val_loss improved from 1318.80090 to 11.53536, saving model to /tmp/output_segnet_drop0_categorical_crossentropy/model.weights.h5

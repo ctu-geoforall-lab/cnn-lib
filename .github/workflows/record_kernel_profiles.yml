@@ -1,0 +1,68 @@
+name: record_kernel_profiles
+
+# Samples the runner pool. Each job lands on whatever CPU GitHub hands out,
+# records that machine's kernel profile and its reference outputs, and uploads
+# them. Run it repeatedly until no new fingerprints appear, then merge the
+# artifacts into cnn_lib/test/consistency_outputs/ and kernel_profiles.json.
+#
+# Which CPUs the pool contains is not published and changes over time, so this
+# is the only way to enumerate them.
+
+on:
+  workflow_dispatch:
+    inputs:
+      samples:
+        description: 'How many runners to sample in parallel'
+        required: false
+        default: '6'
+
+jobs:
+  record:
+    name: "sample ${{ matrix.sample }}"
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        sample: [1, 2, 3, 4, 5, 6]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Report the hardware this sample landed on
+        run: |
+          lscpu | grep -E 'Model name|Vendor ID|CPU family|Model:|Stepping'
+          echo "L1d: $(cat /sys/devices/system/cpu/cpu0/cache/index0/size)"
+          echo "L2:  $(cat /sys/devices/system/cpu/cpu0/cache/index2/size)"
+
+      - name: Download test data
+        run: |
+          pip install zenodo_get && \
+          zenodo_get 7040177 -o /tmp/ && \
+          7z x /tmp/venus_clouds_v1.0.7z -o/tmp/training_data && \
+          rm /tmp/training_data/training_set_clouds_multiclass/s*
+
+      - name: Build docker
+        run: docker build docker/docker-cpu -t docker-cpu:1.0
+
+      - name: Record the profile and its reference outputs
+        run: |
+          docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw \
+            -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
+            -e CNN_LIB_RECORD_PROFILE=1 \
+            --cpuset-cpus=1 -m 6g docker-cpu:1.0 \
+            bash -c "cd src; pip install .; pytest cnn_lib/test/consistency_test.py"
+
+      - name: Name the artifact after the recorded fingerprint
+        id: fingerprint
+        run: |
+          echo "id=$(python3 -c "import json;print('_'.join(json.load(open('cnn_lib/test/kernel_profiles.json'))['profiles']))")" >> $GITHUB_OUTPUT
+
+      - name: Upload the recorded profile
+        uses: actions/upload-artifact@v4
+        with:
+          name: "kernel-profile-${{ steps.fingerprint.outputs.id }}-${{ matrix.sample }}"
+          path: |
+            cnn_lib/test/kernel_profiles.json
+            cnn_lib/test/consistency_outputs/**

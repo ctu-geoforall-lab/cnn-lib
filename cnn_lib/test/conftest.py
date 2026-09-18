@@ -18,10 +18,14 @@ machine whose path has not been recorded skips instead of failing at random:
                                           write its reference outputs
     CNN_LIB_REQUIRE_PROFILE=1 pytest ...  fail instead of skipping
 
-The first profile recorded keeps the flat consistency_outputs/ directory;
-further ones get a subdirectory named after their fingerprint. Which profiles
-GitHub's runner pool can hand out is not published and changes over time, so
-they are sampled empirically - see .github/workflows/record_kernel_profiles.yml
+Each profile gets consistency_outputs/<fingerprint>/ to itself, so recordings
+made by separate CI jobs merge by copying. Which profiles GitHub's runner pool
+can hand out is not published and changes over time, so they are sampled
+empirically - see .github/workflows/record_kernel_profiles.yml
+
+Rebuilding the image against a different TensorFlow or numpy changes the
+fingerprint as well. That is intended: the reference outputs change with it,
+so every profile has to be re-recorded anyway.
 
 To have the tests always run, use fixed hardware - a self-hosted runner.
 """
@@ -143,10 +147,11 @@ def known_kernel_profile():
                 pytest.fail(message, pytrace=False)
             pytest.skip(message)
 
-        # the first profile recorded keeps the flat directory
-        profiles[fingerprint] = (
-            '.' if '.' not in profiles.values() else fingerprint
-        )
+        # always a directory of its own, so that recordings made by separate
+        # CI jobs merge by copying, without any of them claiming a shared
+        # directory. Two profiles that turn out to produce identical outputs
+        # can afterwards be pointed at the same directory by hand.
+        profiles[fingerprint] = fingerprint
         _write_profiles(profiles)
 
     outputs_dir = os.path.join(OUTPUTS_DIR, profiles[fingerprint])

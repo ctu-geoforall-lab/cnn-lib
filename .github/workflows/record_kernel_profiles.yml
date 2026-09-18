@@ -2,19 +2,27 @@ name: record_kernel_profiles
 
 # Samples the runner pool. Each job lands on whatever CPU GitHub hands out,
 # records that machine's kernel profile and its reference outputs, and uploads
-# them. Run it repeatedly until no new fingerprints appear, then merge the
-# artifacts into cnn_lib/test/consistency_outputs/ and kernel_profiles.json.
+# them. Which CPUs the pool contains is not published and changes over time,
+# so this is the only way to enumerate them.
 #
-# Which CPUs the pool contains is not published and changes over time, so this
-# is the only way to enumerate them.
+# How to run it:
+#   * push a branch named record-profiles/<anything> - the push trigger below
+#     fires, and the workflow definition used is the one on that branch. This
+#     works from a feature branch, without touching main.
+#   * or, once this file is merged to the default branch, use the Run workflow
+#     button (workflow_dispatch only appears for workflows on the default
+#     branch - that is why it never showed up before).
+#
+# Repeat until no new fingerprints appear, then merge the artifacts:
+#   * copy each consistency_outputs/<fingerprint>/ directory into the repo
+#   * union the "profiles" maps of the downloaded kernel_profiles.json files
+# Every job records into a directory of its own, so nothing collides.
 
 on:
+  push:
+    branches:
+      - 'record-profiles/**'
   workflow_dispatch:
-    inputs:
-      samples:
-        description: 'How many runners to sample in parallel'
-        required: false
-        default: '6'
 
 jobs:
   record:
@@ -24,6 +32,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # one job per runner sampled; add or remove entries to sample more or
+        # fewer at a time
         sample: [1, 2, 3, 4, 5, 6]
 
     steps:

@@ -46,11 +46,21 @@ def download(run):
     if run is None:
         run = subprocess.run(
             [
-                'gh', 'run', 'list', '--workflow', 'record_kernel_profiles.yml',
-                '--limit', '1', '--json', 'databaseId',
-                '--jq', '.[0].databaseId',
+                'gh',
+                'run',
+                'list',
+                '--workflow',
+                'record_kernel_profiles.yml',
+                '--limit',
+                '1',
+                '--json',
+                'databaseId',
+                '--jq',
+                '.[0].databaseId',
             ],
-            capture_output=True, text=True, check=True,
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.strip()
 
     directory = tempfile.mkdtemp(prefix='kernel-profiles-')
@@ -94,7 +104,7 @@ def check_agreement(fingerprint, directories):
     compared = 0
 
     for i, left in enumerate(directories):
-        for right in directories[i + 1:]:
+        for right in directories[i + 1 :]:
             shared = set(os.listdir(left)) & set(os.listdir(right))
             for name in sorted(shared):
                 compared += 1
@@ -129,7 +139,9 @@ def main():
     found = collect(artifacts)
 
     if not found:
-        fail(f'no consistency_outputs/<fingerprint>/ directories in {artifacts}')
+        fail(
+            f'no consistency_outputs/<fingerprint>/ directories in {artifacts}'
+        )
 
     print('\nFingerprints in this run (jobs each):')
     for fingerprint, directories in sorted(found.items()):
@@ -199,7 +211,8 @@ def main():
         subprocess.run(['git', 'rm', '-q'] + stale, check=True)
 
     fingerprints = sorted(
-        name for name in os.listdir(OUT)
+        name
+        for name in os.listdir(OUT)
         if os.path.isdir(os.path.join(OUT, name))
     )
     with open(PROFILES_FN, 'w') as profiles_file:
@@ -224,7 +237,7 @@ def main():
     duplicates = [
         f'  {a} == {b}'
         for i, a in enumerate(fingerprints)
-        for b in fingerprints[i + 1:]
+        for b in fingerprints[i + 1 :]
         if not filecmp.dircmp(
             os.path.join(OUT, a), os.path.join(OUT, b)
         ).diff_files
@@ -232,7 +245,11 @@ def main():
             os.path.join(OUT, a), os.path.join(OUT, b)
         ).left_only
     ]
-    print('\n'.join(duplicates) if duplicates else '  none - every profile differs')
+    print(
+        '\n'.join(duplicates)
+        if duplicates
+        else '  none - every profile differs'
+    )
 
     if not args.directory:
         shutil.rmtree(artifacts, ignore_errors=True)

@@ -1,0 +1,7 @@
+{
+  "comment": "Fingerprints of the float32 kernel paths the reference outputs were recorded on, mapped to their directory under consistency_outputs. See conftest.py.",
+  "profiles": {
+    "c412eb5cf532b918": "c412eb5cf532b918",
+    "fb75eab1bb909f87": "fb75eab1bb909f87"
+  }
+}

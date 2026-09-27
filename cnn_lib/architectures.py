@@ -498,7 +498,7 @@ class SegNet(_BaseModel):
             # blocks of the depth 3
             ds_blocks.append(
                 ConvBlock(
-                    (self.nr_filters * (2**(i-1)),),
+                    (self.nr_filters * (2**i),),
                     ((3, 3),),
                     (self.activation,),
                     (self.padding,),
@@ -626,7 +626,7 @@ class SegNet(_BaseModel):
             x = self.us_pools[i]((x, pool_indices[-(i + 1)]))
             x = self.us_blocks[2 * i](x)
             if 2 * i + 1 < len(self.us_blocks):
-                x = self.us_blocks[2 * i + 1](x)
+                x = self.us_blocks[2 * i + 1](x) + 1
 
         return x
 

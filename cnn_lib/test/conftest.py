@@ -11,12 +11,13 @@ summation order, which means a few ULP - and the printed value is the
 inference-mode val_loss of a BatchNorm net at batch_size=1, which turns 1 ULP
 into ~10%.
 
-So each distinct kernel path gets its own set of reference outputs, and a
-machine whose path has not been recorded skips instead of failing at random:
+So each distinct kernel path gets its own set of reference outputs. A machine
+whose path has not been recorded fails - never skips - because an unrecorded
+kernel path is a gap in the reference outputs, and the fix is to record it
+rather than to let the build go green without having compared anything:
 
     CNN_LIB_RECORD_PROFILE=1 pytest ...   record this machine's profile and
                                           write its reference outputs
-    CNN_LIB_REQUIRE_PROFILE=1 pytest ...  fail instead of skipping
 
 Each profile gets consistency_outputs/<fingerprint>/ to itself, so recordings
 made by separate CI jobs merge by copying. Which profiles GitHub's runner pool
@@ -27,7 +28,9 @@ Rebuilding the image against a different TensorFlow or numpy changes the
 fingerprint as well. That is intended: the reference outputs change with it,
 so every profile has to be re-recorded anyway.
 
-To have the tests always run, use fixed hardware - a self-hosted runner.
+Every CPU class the runner pool hands out therefore has to be recorded before
+the suite can be green. On fixed hardware - a self-hosted runner - there is
+only ever one profile and the question does not arise.
 """
 
 import os
@@ -136,16 +139,18 @@ def known_kernel_profile():
 
     if fingerprint not in profiles:
         if not _enabled('CNN_LIB_RECORD_PROFILE'):
-            message = (
-                f'This runner computes float32 differently (kernel profile '
-                f'{fingerprint}, known: {sorted(profiles) or "none"}), so a '
-                'byte-exact comparison against the stored outputs would say '
-                'nothing about the code. Record this machine with '
-                'CNN_LIB_RECORD_PROFILE=1, or run on fixed hardware.'
+            # never skipped: an unrecorded machine is a gap in the reference
+            # outputs, and a silent pass would hide it
+            pytest.fail(
+                f'No reference outputs for kernel profile {fingerprint}. '
+                'This runner computes float32 differently from every recorded '
+                f'one ({", ".join(sorted(profiles)) or "none recorded"}), so '
+                'there is nothing valid to compare against. Record it by '
+                'running the record_kernel_profiles workflow until a job '
+                f'lands on {fingerprint}, then merge the artifact with '
+                'cnn_lib/test/merge_kernel_profiles.py.',
+                pytrace=False,
             )
-            if _enabled('CNN_LIB_REQUIRE_PROFILE'):
-                pytest.fail(message, pytrace=False)
-            pytest.skip(message)
 
         # always a directory of its own, so that recordings made by separate
         # CI jobs merge by copying, without any of them claiming a shared

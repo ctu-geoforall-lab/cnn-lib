@@ -498,7 +498,7 @@ class SegNet(_BaseModel):
             # blocks of the depth 3
             ds_blocks.append(
                 ConvBlock(
-                    (self.nr_filters * (2**i),),
+                    (self.nr_filters * (2**(i-1)),),
                     ((3, 3),),
                     (self.activation,),
                     (self.padding,),

@@ -8,6 +8,20 @@ from difflib import unified_diff
 import cnn_lib.train as train
 
 
+def stored_fn(identifier):
+    """Path of the reference output valid for this machine.
+
+    :param identifier: identifier of the training setting
+    :return: path to the stored output file
+    """
+    return os.path.join(
+        os.environ.get(
+            'CNN_LIB_OUTPUTS_DIR', 'cnn_lib/test/consistency_outputs'
+        ),
+        f'{identifier}.txt',
+    )
+
+
 def report_file(identifier):
     """Report the inconsistency of two files.
 
@@ -22,9 +36,7 @@ def report_file(identifier):
     )
 
     with open(f'/tmp/{identifier}.txt') as left:
-        with open(
-            f'cnn_lib/test/consistency_outputs/{identifier}.txt'
-        ) as right:
+        with open(stored_fn(identifier)) as right:
             sys.stdout.writelines(
                 unified_diff(left.readlines(), right.readlines())
             )
@@ -78,7 +90,7 @@ class TestCmd:
 
                 assert filecmp.cmp(
                     f'/tmp/{identifier}.txt',
-                    f'cnn_lib/test/consistency_outputs/{identifier}.txt',
+                    stored_fn(identifier),
                 ), report_file(identifier)
 
                 shutil.rmtree(output_dir)
@@ -117,7 +129,7 @@ class TestCmd:
 
                 assert filecmp.cmp(
                     f'/tmp/{identifier}.txt',
-                    f'cnn_lib/test/consistency_outputs/{identifier}.txt',
+                    stored_fn(identifier),
                 ), report_file(identifier)
 
                 shutil.rmtree(output_dir)
@@ -155,7 +167,7 @@ class TestCmd:
 
                 assert filecmp.cmp(
                     f'/tmp/{identifier}.txt',
-                    f'cnn_lib/test/consistency_outputs/{identifier}.txt',
+                    stored_fn(identifier),
                 ), report_file(identifier)
 
                 shutil.rmtree(output_dir)
@@ -203,7 +215,7 @@ class TestCmd:
 
             assert filecmp.cmp(
                 f'/tmp/{identifier}.txt',
-                f'cnn_lib/test/consistency_outputs/{identifier}.txt',
+                stored_fn(identifier),
             ), report_file(identifier)
 
             shutil.rmtree(output_dir)
@@ -241,7 +253,7 @@ class TestCmd:
 
             assert filecmp.cmp(
                 f'/tmp/{identifier}.txt',
-                f'cnn_lib/test/consistency_outputs/{identifier}.txt',
+                stored_fn(identifier),
             ), report_file(identifier)
 
             shutil.rmtree(output_dir)
@@ -289,7 +301,7 @@ class TestCmd:
 
         assert filecmp.cmp(
             f'/tmp/{identifier}.txt',
-            f'cnn_lib/test/consistency_outputs/{identifier}.txt',
+            stored_fn(identifier),
         ), report_file(identifier)
 
         shutil.rmtree(output_dir)

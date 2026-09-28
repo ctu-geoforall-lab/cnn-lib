@@ -1,4 +1,4 @@
-Model: "u-net_drop0_categorical_crossentropy_augment"
+Model: "segnet_drop0.5_categorical_crossentropy"
 ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
 ┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
@@ -8,85 +8,87 @@ Model: "u-net_drop0_categorical_crossentropy_augment"
 │ downsampling_block0 │ (None, 256, 256,  │     44,416 │ input[0][0]       │
 │ (ConvBlock)         │ 64)               │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ downsampling_pooli… │ (None, 128, 128,  │          0 │ downsampling_blo… │
-│ (MaxPooling2D)      │ 64)               │            │                   │
+│ my_max_pooling_5    │ [(None, 128, 128, │          0 │ downsampling_blo… │
+│ (MyMaxPooling)      │ 64), (None, 128,  │            │                   │
+│                     │ 128, 64)]         │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ downsampling_block1 │ (None, 128, 128,  │    222,464 │ downsampling_poo… │
+│ downsampling_block1 │ (None, 128, 128,  │    222,464 │ my_max_pooling_5… │
 │ (ConvBlock)         │ 128)              │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ downsampling_pooli… │ (None, 64, 64,    │          0 │ downsampling_blo… │
-│ (MaxPooling2D)      │ 128)              │            │                   │
+│ my_max_pooling_6    │ [(None, 64, 64,   │          0 │ downsampling_blo… │
+│ (MyMaxPooling)      │ 128), (None, 64,  │            │                   │
+│                     │ 64, 128)]         │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ downsampling_block2 │ (None, 64, 64,    │    887,296 │ downsampling_poo… │
+│ downsampling_block2 │ (None, 64, 64,    │  1,478,400 │ my_max_pooling_6… │
 │ (ConvBlock)         │ 256)              │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ downsampling_pooli… │ (None, 32, 32,    │          0 │ downsampling_blo… │
-│ (MaxPooling2D)      │ 256)              │            │                   │
+│ my_max_pooling_7    │ [(None, 32, 32,   │          0 │ downsampling_blo… │
+│ (MyMaxPooling)      │ 256), (None, 32,  │            │                   │
+│                     │ 32, 256)]         │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ downsampling_block3 │ (None, 32, 32,    │  3,544,064 │ downsampling_poo… │
+│ downsampling_block3 │ (None, 32, 32,    │  5,905,920 │ my_max_pooling_7… │
 │ (ConvBlock)         │ 512)              │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ downsampling_pooli… │ (None, 16, 16,    │          0 │ downsampling_blo… │
-│ (MaxPooling2D)      │ 512)              │            │                   │
+│ my_max_pooling_8    │ [(None, 16, 16,   │          0 │ downsampling_blo… │
+│ (MyMaxPooling)      │ 512), (None, 16,  │            │                   │
+│                     │ 16, 512)]         │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ middle_block        │ (None, 16, 16,    │ 14,166,016 │ downsampling_poo… │
+│ downsampling_block4 │ (None, 16, 16,    │ 23,608,320 │ my_max_pooling_8… │
 │ (ConvBlock)         │ 1024)             │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_pool3    │ (None, 32, 32,    │          0 │ middle_block[0][… │
-│ (UpSampling2D)      │ 1024)             │            │                   │
+│ my_max_pooling_9    │ [(None, 8, 8,     │          0 │ downsampling_blo… │
+│ (MyMaxPooling)      │ 1024), (None, 8,  │            │                   │
+│                     │ 8, 1024)]         │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_conv3    │ (None, 32, 32,    │  2,097,664 │ upsampling_pool3… │
-│ (Conv2D)            │ 512)              │            │                   │
+│ my_max_unpooling_5  │ (None, 16, 16,    │          0 │ my_max_pooling_9… │
+│ (MyMaxUnpooling)    │ 1024)             │            │ my_max_pooling_9… │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_concat3  │ (None, 32, 32,    │          0 │ upsampling_conv3… │
-│ (Concatenate)       │ 1024)             │            │ downsampling_blo… │
+│ upsampling_block4_2 │ (None, 16, 16,    │ 18,884,608 │ my_max_unpooling… │
+│ (ConvBlock)         │ 1024)             │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_block3   │ (None, 32, 32,    │  7,083,008 │ upsampling_conca… │
+│ upsampling_block4_1 │ (None, 16, 16,    │  4,721,152 │ upsampling_block… │
 │ (ConvBlock)         │ 512)              │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_pool2    │ (None, 64, 64,    │          0 │ upsampling_block… │
-│ (UpSampling2D)      │ 512)              │            │                   │
+│ my_max_unpooling_6  │ (None, 32, 32,    │          0 │ upsampling_block… │
+│ (MyMaxUnpooling)    │ 512)              │            │ my_max_pooling_8… │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_conv2    │ (None, 64, 64,    │    524,544 │ upsampling_pool2… │
-│ (Conv2D)            │ 256)              │            │                   │
+│ upsampling_block3_2 │ (None, 32, 32,    │  4,723,712 │ my_max_unpooling… │
+│ (ConvBlock)         │ 512)              │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_concat2  │ (None, 64, 64,    │          0 │ upsampling_conv2… │
-│ (Concatenate)       │ 512)              │            │ downsampling_blo… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_block2   │ (None, 64, 64,    │  1,772,032 │ upsampling_conca… │
+│ upsampling_block3_1 │ (None, 32, 32,    │  1,180,928 │ upsampling_block… │
 │ (ConvBlock)         │ 256)              │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_pool1    │ (None, 128, 128,  │          0 │ upsampling_block… │
-│ (UpSampling2D)      │ 256)              │            │                   │
+│ my_max_unpooling_7  │ (None, 64, 64,    │          0 │ upsampling_block… │
+│ (MyMaxUnpooling)    │ 256)              │            │ my_max_pooling_7… │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_conv1    │ (None, 128, 128,  │    131,200 │ upsampling_pool1… │
-│ (Conv2D)            │ 128)              │            │                   │
+│ upsampling_block2_2 │ (None, 64, 64,    │  1,182,208 │ my_max_unpooling… │
+│ (ConvBlock)         │ 256)              │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_concat1  │ (None, 128, 128,  │          0 │ upsampling_conv1… │
-│ (Concatenate)       │ 256)              │            │ downsampling_blo… │
-├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_block1   │ (None, 128, 128,  │    443,648 │ upsampling_conca… │
+│ upsampling_block2_1 │ (None, 64, 64,    │    295,552 │ upsampling_block… │
 │ (ConvBlock)         │ 128)              │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_pool0    │ (None, 256, 256,  │          0 │ upsampling_block… │
-│ (UpSampling2D)      │ 128)              │            │                   │
+│ my_max_unpooling_8  │ (None, 128, 128,  │          0 │ upsampling_block… │
+│ (MyMaxUnpooling)    │ 128)              │            │ my_max_pooling_6… │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_conv0    │ (None, 256, 256,  │     32,832 │ upsampling_pool0… │
-│ (Conv2D)            │ 64)               │            │                   │
+│ upsampling_block1_2 │ (None, 128, 128,  │    148,096 │ my_max_unpooling… │
+│ (ConvBlock)         │ 128)              │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_concat0  │ (None, 256, 256,  │          0 │ upsampling_conv0… │
-│ (Concatenate)       │ 128)              │            │ downsampling_blo… │
+│ upsampling_block1_1 │ (None, 128, 128,  │     74,048 │ upsampling_block… │
+│ (ConvBlock)         │ 64)               │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ upsampling_block0   │ (None, 256, 256,  │    111,232 │ upsampling_conca… │
+│ my_max_unpooling_9  │ (None, 256, 256,  │          0 │ upsampling_block… │
+│ (MyMaxUnpooling)    │ 64)               │            │ my_max_pooling_5… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ upsampling_block0   │ (None, 256, 256,  │     37,184 │ my_max_unpooling… │
 │ (ConvBlock)         │ 64)               │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
 │ classifier_layer    │ (None, 256, 256,  │        195 │ upsampling_block… │
 │ (Conv2D)            │ 3)                │            │                   │
 └─────────────────────┴───────────────────┴────────────┴───────────────────┘
- Total params: 31,060,611 (118.49 MB)
- Trainable params: 31,048,835 (118.44 MB)
- Non-trainable params: 11,776 (46.00 KB)
+ Total params: 62,507,203 (238.45 MB)
+ Trainable params: 62,486,211 (238.37 MB)
+ Non-trainable params: 20,992 (82.00 KB)
 
-Epoch 1: val_loss improved from inf to 2.48105, saving model to /tmp/output_u-net_drop0_categorical_crossentropy_augment/model.weights.h5
+Epoch 1: val_loss improved from inf to 4271.96240, saving model to /tmp/output_segnet_drop0.5_categorical_crossentropy/model.weights.h5
 
-Epoch 2: val_loss improved from 2.48105 to 2.28520, saving model to /tmp/output_u-net_drop0_categorical_crossentropy_augment/model.weights.h5
+Epoch 2: val_loss improved from 4271.96240 to 27.65208, saving model to /tmp/output_segnet_drop0.5_categorical_crossentropy/model.weights.h5

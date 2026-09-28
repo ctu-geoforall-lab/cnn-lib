@@ -1,11 +1,11 @@
-Model: "deeplab_drop0.5_ResNet50_categorical_crossentropy"
+Model: "deeplab_drop0_ResNet101_categorical_crossentropy"
 ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
 ┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
 ┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
 │ input (InputLayer)  │ (None, 256, 256,  │          0 │ -                 │
 │                     │ 12)               │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
-│ resnet (ResNet)     │ [(None, 64, 64,   │  8,617,408 │ input[0][0]       │
+│ resnet (ResNet)     │ [(None, 64, 64,   │ 27,687,872 │ input[0][0]       │
 │                     │ 256), (None, 16,  │            │                   │
 │                     │ 16, 1024)]        │            │                   │
 ├─────────────────────┼───────────────────┼────────────┼───────────────────┤
@@ -30,10 +30,10 @@ Model: "deeplab_drop0.5_ResNet50_categorical_crossentropy"
 │ classifier_layer    │ (None, 256, 256,  │        771 │ decoder_final_up… │
 │ (Conv2D)            │ 3)                │            │                   │
 └─────────────────────┴───────────────────┴────────────┴───────────────────┘
- Total params: 17,861,043 (68.13 MB)
- Trainable params: 17,826,259 (68.00 MB)
- Non-trainable params: 34,784 (135.88 KB)
+ Total params: 36,931,507 (140.88 MB)
+ Trainable params: 36,844,499 (140.55 MB)
+ Non-trainable params: 87,008 (339.88 KB)
 
-Epoch 1: val_loss improved from inf to 1.85274, saving model to /tmp/output_deeplab_drop0.5_ResNet50_categorical_crossentropy/model.weights.h5
+Epoch 1: val_loss improved from inf to 61074.06641, saving model to /tmp/output_deeplab_drop0_ResNet101_categorical_crossentropy/model.weights.h5
 
-Epoch 2: val_loss improved from 1.85274 to 0.36232, saving model to /tmp/output_deeplab_drop0.5_ResNet50_categorical_crossentropy/model.weights.h5
+Epoch 2: val_loss improved from 61074.06641 to 433.99756, saving model to /tmp/output_deeplab_drop0_ResNet101_categorical_crossentropy/model.weights.h5

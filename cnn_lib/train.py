@@ -67,13 +67,21 @@ def run(
         os.path.join(data_dir, 'label_colors.txt')
     )
 
-    # set TensorFlow seed
+    # set the seeds and make the op execution deterministic
     if seed is not None:
         if int(tf.__version__.split('.')[1]) < 4:
             tf.random.set_seed(seed)
         else:
             tf.random.set_seed(seed)
             tf.keras.utils.set_random_seed(seed)
+        try:
+            tf.config.experimental.enable_op_determinism()
+        except AttributeError:
+            # TF < 2.8
+            os.environ['TF_DETERMINISTIC_OPS'] = '1'
+
+        tf.config.threading.set_intra_op_parallelism_threads(1)
+        tf.config.threading.set_inter_op_parallelism_threads(1)
 
     model = create_model(
         model,
@@ -117,9 +125,8 @@ def run(
             else:
                 model.set_layers_trainable(False, frozen_layer_groups)
             model.compile(
-                optimizer=model.optimizer,
-                loss=model.loss,
-                metrics=_metrics)
+                optimizer=model.optimizer, loss=model.loss, metrics=_metrics
+            )
 
     train_generator = AugmentGenerator(
         data_dir,

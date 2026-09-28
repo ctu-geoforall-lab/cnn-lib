@@ -34,6 +34,6 @@ Model: "deeplab_drop0_ResNet101_categorical_crossentropy"
  Trainable params: 36,844,499 (140.55 MB)
  Non-trainable params: 87,008 (339.88 KB)
 
-Epoch 1: val_loss improved from inf to 80602.63281, saving model to /tmp/output_deeplab_drop0_ResNet101_categorical_crossentropy/model.weights.h5
+Epoch 1: val_loss improved from inf to 57125.37109, saving model to /tmp/output_deeplab_drop0_ResNet101_categorical_crossentropy/model.weights.h5
 
-Epoch 2: val_loss improved from 80602.63281 to 211.62981, saving model to /tmp/output_deeplab_drop0_ResNet101_categorical_crossentropy/model.weights.h5
+Epoch 2: val_loss improved from 57125.37109 to 414.59738, saving model to /tmp/output_deeplab_drop0_ResNet101_categorical_crossentropy/model.weights.h5

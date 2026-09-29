@@ -57,7 +57,7 @@ jobs:
       fail-fast: false
       matrix:
         # runners to sample; add or remove entries to sample more or fewer
-        sample: [1, 2, 3]
+        sample: [1, 2, 3, 4, 5]
         test:
           - test_001_main_architectures
           - test_002_loss

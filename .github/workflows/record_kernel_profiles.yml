@@ -5,18 +5,20 @@ name: record_kernel_profiles
 # them. Which CPUs the pool contains is not published and changes over time,
 # so this is the only way to enumerate them.
 #
-# How to run it:
-#   * push a branch named record-profiles/<anything> - the push trigger below
-#     fires, and the workflow definition used is the one on that branch. This
-#     works from a feature branch, without touching main.
-#   * or, once this file is merged to the default branch, use the Run workflow
-#     button (workflow_dispatch only appears for workflows on the default
-#     branch - that is why it never showed up before).
+# Two things keep a job under the 6 hour ceiling:
+#   * the image is built once, in its own job, and shipped to the sampling
+#     jobs as an artifact - that is ~41 minutes each that they no longer pay
+#   * each sampling job records ONE test function, not the whole file
 #
-# Repeat until no new fingerprints appear, then merge the artifacts:
-#   * copy each consistency_outputs/<fingerprint>/ directory into the repo
-#   * union the "profiles" maps of the downloaded kernel_profiles.json files
-# Every job records into a directory of its own, so nothing collides.
+# Because the test functions run as separate jobs, a profile can be assembled
+# from several jobs that happen to share a fingerprint. merge_kernel_profiles.sh
+# only accepts a profile once every reference output is present.
+#
+# How to run it:
+#   * push a branch named record-profiles/<anything>
+#   * or, once this file is on the default branch, use the Run workflow button
+#
+# Repeat until no new fingerprints appear.
 
 on:
   push:
@@ -25,54 +27,101 @@ on:
   workflow_dispatch:
 
 jobs:
-  record:
-    name: "sample ${{ matrix.sample }}"
+  build:
+    name: build docker once
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build docker
+        run: docker build docker/docker-cpu -t docker-cpu:1.0
+
+      - name: Export the image for the sampling jobs
+        run: docker save docker-cpu:1.0 | gzip -1 > /tmp/docker-cpu.tar.gz
+
+      - name: Upload the image
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-cpu-image
+          path: /tmp/docker-cpu.tar.gz
+          retention-days: 1
+
+  record:
+    name: "${{ matrix.test }} / sample ${{ matrix.sample }}"
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
 
     strategy:
       fail-fast: false
       matrix:
-        # one job per runner sampled; add or remove entries to sample more or
-        # fewer at a time
-        sample: [1, 2, 3, 4, 5, 6]
+        # runners to sample; add or remove entries to sample more or fewer
+        sample: [1, 2, 3]
+        test:
+          - test_001_main_architectures
+          - test_002_loss
+          - test_003_augmentation
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Report the hardware this sample landed on
         run: |
           lscpu | grep -E 'Model name|Vendor ID|CPU family|Model:|Stepping'
           echo "L1d: $(cat /sys/devices/system/cpu/cpu0/cache/index0/size)"
           echo "L2:  $(cat /sys/devices/system/cpu/cpu0/cache/index2/size)"
+          free -g
+
+      - name: Download the prebuilt image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-cpu-image
+          path: /tmp
+
+      - name: Load the image
+        run: gunzip -c /tmp/docker-cpu.tar.gz | docker load
+
+      # a few seconds, against hours: most sampled runners turn out to be a
+      # CPU class that is already recorded, and those jobs can stop here
+      - name: Is this machine's kernel profile already recorded?
+        id: probe
+        run: |
+          docker run --rm -v ${GITHUB_WORKSPACE}:/src:ro \
+            -e PYTHONPATH=/src --cpuset-cpus=1 -m 16g docker-cpu:1.0 \
+            bash -c "cd src; python3 cnn_lib/test/conftest.py" | tee /tmp/probe.txt
+          echo "fingerprint=$(cut -d' ' -f1 /tmp/probe.txt)" >> $GITHUB_OUTPUT
+          echo "state=$(cut -d' ' -f2 /tmp/probe.txt)" >> $GITHUB_OUTPUT
 
       - name: Download test data
+        if: steps.probe.outputs.state == 'unknown'
         run: |
           pip install zenodo_get && \
           zenodo_get 7040177 -o /tmp/ && \
           7z x /tmp/venus_clouds_v1.0.7z -o/tmp/training_data && \
           rm /tmp/training_data/training_set_clouds_multiclass/s*
 
-      - name: Build docker
-        run: docker build docker/docker-cpu -t docker-cpu:1.0
-
+      # A recording pass builds every model of the test function, because
+      # nothing fails early, and TensorFlow does not give the memory back
+      # between them - hence the large -m.
       - name: Record the profile and its reference outputs
+        if: steps.probe.outputs.state == 'unknown'
         run: |
           docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw \
             -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
             -e CNN_LIB_RECORD_PROFILE=1 \
             --cpuset-cpus=1 -m 16g docker-cpu:1.0 \
-            bash -c "cd src; pip install .; pytest cnn_lib/test/consistency_test.py"
+            bash -c "cd src; pip install .; \
+              pytest cnn_lib/test/consistency_test.py::TestCmd::${{ matrix.test }}"
 
-      - name: Name the artifact after the recorded fingerprint
-        id: fingerprint
-        run: |
-          echo "id=$(python3 -c "import json;print('_'.join(json.load(open('cnn_lib/test/kernel_profiles.json'))['profiles']))")" >> $GITHUB_OUTPUT
-
+      # uploaded even on failure or timeout, so partial work is not lost
       - name: Upload the recorded profile
+        if: always() && steps.probe.outputs.state == 'unknown'
         uses: actions/upload-artifact@v4
         with:
-          name: "kernel-profile-${{ steps.fingerprint.outputs.id }}-${{ matrix.sample }}"
+          name: "kernel-profile-${{ steps.probe.outputs.fingerprint }}-${{ matrix.test }}-${{ matrix.sample }}"
+          if-no-files-found: warn
           path: |
             cnn_lib/test/kernel_profiles.json
             cnn_lib/test/consistency_outputs/**

@@ -89,7 +89,7 @@ jobs:
         id: probe
         run: |
           docker run --rm -v ${GITHUB_WORKSPACE}:/src:ro \
-            -e PYTHONPATH=/src --cpuset-cpus=1 -m 16g docker-cpu:1.0 \
+            -e PYTHONPATH=/src --cpus=4 -m 16g docker-cpu:1.0 \
             bash -c "cd src; python3 cnn_lib/test/conftest.py" | tee /tmp/probe.txt
           echo "fingerprint=$(cut -d' ' -f1 /tmp/probe.txt)" >> $GITHUB_OUTPUT
           echo "state=$(cut -d' ' -f2 /tmp/probe.txt)" >> $GITHUB_OUTPUT
@@ -111,7 +111,7 @@ jobs:
           docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw \
             -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
             -e CNN_LIB_RECORD_PROFILE=1 \
-            --cpuset-cpus=1 -m 16g docker-cpu:1.0 \
+            --cpus=4 -m 16g docker-cpu:1.0 \
             bash -c "cd src; pip install .; \
               pytest cnn_lib/test/consistency_test.py::TestCmd::${{ matrix.test }}"
 

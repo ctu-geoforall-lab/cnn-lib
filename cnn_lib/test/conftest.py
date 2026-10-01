@@ -173,3 +173,17 @@ def known_kernel_profile():
             return True
 
         filecmp.cmp = record
+
+
+if __name__ == '__main__':
+    # `python3 cnn_lib/test/conftest.py` prints this machine's fingerprint and
+    # whether it is already recorded. Used by the recording workflow to decide
+    # in a few seconds whether the hours-long recording pass is worth running.
+    tf.keras.utils.set_random_seed(1)
+    tf.config.experimental.enable_op_determinism()
+    tf.config.threading.set_intra_op_parallelism_threads(1)
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+
+    _fingerprint = kernel_fingerprint()
+    _known = 'known' if _fingerprint in _read_profiles() else 'unknown'
+    print(f'{_fingerprint} {_known}')

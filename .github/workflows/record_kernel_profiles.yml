@@ -59,7 +59,9 @@ jobs:
         # runners to sample; add or remove entries to sample more or fewer
         sample: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         test:
-          - test_001_main_architectures
+          - test_001a_plain_architectures
+          - test_001b_deeplab_backbones
+          - test_001c_fcn_backbone
           - test_002_loss
           - test_003_augmentation
 

@@ -63,12 +63,50 @@ def _enabled(name):
     return os.environ.get(name, '') not in ('', '0', 'false', 'False')
 
 
+def _cpu_identity():
+    """Describe the CPU closely enough to tell two models apart.
+
+    The numeric probe below is necessary but not sufficient: two different
+    CPU generations with the same L1d size pick the same Eigen blocking for
+    the probe's shapes and so hash identically, while diverging on the
+    shapes the real models use. An EPYC 9V74 (family 25) and an EPYC 9V45
+    (family 26) collided exactly that way. So the identity of the CPU goes
+    into the fingerprint as well.
+
+    :return: string describing the CPU and its caches
+    """
+    fields = ('vendor_id', 'cpu family', 'model', 'model name', 'stepping')
+    values = {}
+    try:
+        with open('/proc/cpuinfo') as cpuinfo:
+            for line in cpuinfo:
+                key, _, value = line.partition(':')
+                key = key.strip()
+                if key in fields and key not in values:
+                    values[key] = value.strip()
+    except OSError:
+        pass
+
+    caches = []
+    for index in range(4):
+        path = f'/sys/devices/system/cpu/cpu0/cache/index{index}/size'
+        try:
+            with open(path) as cache:
+                caches.append(cache.read().strip())
+        except OSError:
+            caches.append('?')
+
+    return '|'.join([values.get(f, '?') for f in fields] + caches)
+
+
 def kernel_fingerprint():
     """Fingerprint the float32 kernel path of the current machine.
 
-    A matmul big enough for Eigen to cut into blocks, plus a convolution,
-    hashed over their raw float32 bytes. Two machines share a fingerprint
-    only if they accumulate in the same order.
+    The identity of the CPU, plus a matmul big enough for Eigen to cut into
+    blocks and a convolution, hashed over their raw float32 bytes. The
+    numeric part catches a changed TensorFlow or numpy; the CPU identity
+    catches two models that happen to agree on those two operations but not
+    on the ones the real architectures use.
 
     :return: short hexadecimal fingerprint of the kernel path
     """
@@ -85,6 +123,7 @@ def kernel_fingerprint():
     )
 
     digest = hashlib.sha256()
+    digest.update(_cpu_identity().encode())
     for tensor in (gemm, conv):
         digest.update(tensor.numpy().tobytes())
 

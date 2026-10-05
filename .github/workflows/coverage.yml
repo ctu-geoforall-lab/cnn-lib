@@ -23,7 +23,6 @@ jobs:
     name: build docker and run tests
     runs-on: ubuntu-latest
 
-    continue-on-error: true
 
     steps:
       - name: Checkout
@@ -38,9 +37,12 @@ jobs:
         run: docker build docker/docker-cpu -t docker-cpu:1.0
       - name: pytest
         run: |
-          docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src --cpus=2 -m 20g docker-cpu:1.0 bash -c "cd src; pip install .; pytest --cov-report=term-missing:skip-covered --junitxml=/tmp/pytest.xml --cov=cnn_lib --cov-config=cnn_lib/test/.coveragerc cnn_lib/test/consistency_test.py" | tee /tmp/pytest-coverage.txt
+          set -o pipefail
+          for t in test_001a_plain_architectures test_001b_deeplab_backbones test_001c_fcn_backbone test_002_loss test_003_augmentation; do
+            docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src --cpus=4 -m 16g docker-cpu:1.0 bash -c "cd src; pip install .; pytest --cov-report=term-missing:skip-covered --junitxml=/tmp/pytest-$t.xml --cov=cnn_lib --cov-config=cnn_lib/test/.coveragerc cnn_lib/test/consistency_test.py::TestCmd::$t" | tee -a /tmp/pytest-coverage.txt || exit 1
+          done
       - name: Pytest coverage comment
         uses: MishaKav/pytest-coverage-comment@main
         with:
           pytest-coverage-path: /tmp/pytest-coverage.txt
-          junitxml-path: /tmp/pytest.xml
+          junitxml-path: /tmp/pytest-*.xml

@@ -13,6 +13,11 @@ several jobs that happened to land on CPUs with the same fingerprint. A
 profile is merged only once every reference output is present; an incomplete
 one would make the consistency test fail on a missing file instead of
 skipping.
+
+Two fingerprints can turn out to produce byte-identical outputs - the
+fingerprint tells CPUs apart, and more CPUs differ than compute float32
+differently. Those are pointed at one directory, so the same reference
+outputs are stored once however many CPU classes reach them.
 """
 
 import argparse
@@ -90,6 +95,17 @@ def collect(artifacts):
     return found
 
 
+def outputs(directory):
+    """List the reference outputs stored in a directory.
+
+    :param directory: directory to list
+    :return: sorted list of the reference output file names
+    """
+    return sorted(
+        name for name in os.listdir(directory) if name.endswith('.txt')
+    )
+
+
 def check_agreement(fingerprint, directories):
     """Check that jobs sharing a fingerprint recorded identical outputs.
 
@@ -126,14 +142,37 @@ def check_agreement(fingerprint, directories):
     return agreed
 
 
+def identical(left, right):
+    """Compare two recorded profiles byte by byte.
+
+    :param left: directory holding the first profile
+    :param right: directory holding the second profile
+    :return: whether they hold the same outputs with the same content
+    """
+    names = outputs(left)
+    if names != outputs(right):
+        return False
+
+    # shallow=False: the copies have just been written, so their timestamps
+    # differ and the default stat comparison would call every one of them
+    # different
+    _, mismatch, errors = filecmp.cmpfiles(left, right, names, shallow=False)
+
+    return not mismatch and not errors
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('run', nargs='?', help='workflow run id')
     parser.add_argument('-d', dest='directory', help='downloaded artifacts')
     args = parser.parse_args()
 
-    if not os.path.isdir(OUT):
+    if not os.path.isdir(os.path.dirname(OUT)):
         fail('run this from the root of the cnn-lib checkout')
+
+    # it is gone whenever no profile is recorded yet - git does not keep an
+    # empty directory
+    os.makedirs(OUT, exist_ok=True)
 
     artifacts = args.directory or download(args.run)
     found = collect(artifacts)
@@ -158,8 +197,7 @@ def main():
         name
         for directories in found.values()
         for directory in directories
-        for name in os.listdir(directory)
-        if name.endswith('.txt')
+        for name in outputs(directory)
     }
     print(
         f'\nChecking completeness against the {len(expected)} distinct '
@@ -169,10 +207,7 @@ def main():
     complete = {}
     for fingerprint, directories in sorted(found.items()):
         names = {
-            name
-            for directory in directories
-            for name in os.listdir(directory)
-            if name.endswith('.txt')
+            name for directory in directories for name in outputs(directory)
         }
         missing = sorted(expected - names)
         if missing:
@@ -194,12 +229,11 @@ def main():
         target = os.path.join(OUT, fingerprint)
         os.makedirs(target, exist_ok=True)
         for directory in directories:
-            for name in os.listdir(directory):
-                if name.endswith('.txt'):
-                    shutil.copyfile(
-                        os.path.join(directory, name),
-                        os.path.join(target, name),
-                    )
+            for name in outputs(directory):
+                shutil.copyfile(
+                    os.path.join(directory, name),
+                    os.path.join(target, name),
+                )
 
     stale = [
         os.path.join(OUT, name)
@@ -215,13 +249,38 @@ def main():
         for name in os.listdir(OUT)
         if os.path.isdir(os.path.join(OUT, name))
     )
+
+    # a fingerprint whose outputs are byte-identical to an earlier one is
+    # pointed at that one's directory instead of keeping a second copy
+    profiles = {}
+    for i, fingerprint in enumerate(fingerprints):
+        if fingerprint in profiles:
+            continue
+        profiles[fingerprint] = fingerprint
+        for other in fingerprints[i + 1 :]:
+            if other not in profiles and identical(
+                os.path.join(OUT, fingerprint), os.path.join(OUT, other)
+            ):
+                profiles[other] = fingerprint
+
+    sharing = {fp: to for fp, to in profiles.items() if fp != to}
+    if sharing:
+        print(f'\n{len(sharing)} profile(s) produce output already recorded:')
+        for fingerprint, target in sorted(sharing.items()):
+            print(f'  {fingerprint} -> {target}')
+            path = os.path.join(OUT, fingerprint)
+            subprocess.run(
+                ['git', 'rm', '-rq', '--ignore-unmatch', path], check=True
+            )
+            shutil.rmtree(path, ignore_errors=True)
+
     with open(PROFILES_FN, 'w') as profiles_file:
         json.dump(
             {
                 'comment': 'Fingerprints of the float32 kernel paths the '
                 'reference outputs were recorded on, mapped to their '
                 'directory under consistency_outputs. See conftest.py.',
-                'profiles': {fp: fp for fp in fingerprints},
+                'profiles': profiles,
             },
             profiles_file,
             indent=2,
@@ -229,27 +288,16 @@ def main():
         )
         profiles_file.write('\n')
 
-    print(f'\n{PROFILES_FN} now lists {len(fingerprints)} profile(s):')
-    for fingerprint in fingerprints:
-        print(f'  {fingerprint}')
-
-    print('\nProfiles whose outputs are identical (one directory would do):')
-    duplicates = [
-        f'  {a} == {b}'
-        for i, a in enumerate(fingerprints)
-        for b in fingerprints[i + 1 :]
-        if not filecmp.dircmp(
-            os.path.join(OUT, a), os.path.join(OUT, b)
-        ).diff_files
-        and not filecmp.dircmp(
-            os.path.join(OUT, a), os.path.join(OUT, b)
-        ).left_only
-    ]
     print(
-        '\n'.join(duplicates)
-        if duplicates
-        else '  none - every profile differs'
+        f'\n{PROFILES_FN} now lists {len(profiles)} profile(s) in '
+        f'{len(set(profiles.values()))} directory/ies:'
     )
+    for fingerprint, target in sorted(profiles.items()):
+        print(
+            f'  {fingerprint}'
+            if fingerprint == target
+            else f'  {fingerprint} (shares {target})'
+        )
 
     if not args.directory:
         shutil.rmtree(artifacts, ignore_errors=True)

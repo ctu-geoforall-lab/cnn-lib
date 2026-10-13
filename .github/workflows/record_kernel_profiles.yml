@@ -1,0 +1,152 @@
+name: record_kernel_profiles
+
+# Samples the runner pool. Each job lands on whatever CPU GitHub hands out,
+# records that machine's kernel profile and its reference outputs, and uploads
+# them. Which CPUs the pool contains is not published and changes over time,
+# so this is the only way to enumerate them.
+#
+# Two things keep a job under the 6 hour ceiling:
+#   * the image is built once, in its own job, and shipped to the sampling
+#     jobs as an artifact - that is ~41 minutes each that they no longer pay
+#   * each sampling job records ONE test function, not the whole file
+#
+# Because the test functions run as separate jobs, a profile can be assembled
+# from several jobs that happen to share a fingerprint. merge_kernel_profiles.sh
+# only accepts a profile once every reference output is present.
+#
+# How to run it:
+#   * push a branch named record-profiles/<anything>
+#   * or, once this file is on the default branch, use the Run workflow button
+#
+# Repeat until no new fingerprints appear.
+
+on:
+  push:
+    branches:
+      - 'record-profiles/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build docker once
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build docker
+        run: docker build docker/docker-cpu -t docker-cpu:1.0
+
+      - name: Export the image for the sampling jobs
+        run: docker save docker-cpu:1.0 | gzip -1 > /tmp/docker-cpu.tar.gz
+
+      - name: Upload the image
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-cpu-image
+          path: /tmp/docker-cpu.tar.gz
+          retention-days: 1
+
+  record:
+    name: "${{ matrix.test }} / sample ${{ matrix.sample }}"
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # runners to sample; add or remove entries to sample more or fewer
+        sample: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        test:
+          - test_001a_plain_architectures
+          - test_001b_deeplab_backbones
+          - test_001c_fcn_backbone
+          - test_002_loss
+          - test_003_augmentation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Report the hardware this sample landed on
+        run: |
+          lscpu | grep -E 'Model name|Vendor ID|CPU family|Model:|Stepping'
+          echo "L1d: $(cat /sys/devices/system/cpu/cpu0/cache/index0/size)"
+          echo "L2:  $(cat /sys/devices/system/cpu/cpu0/cache/index2/size)"
+          free -g
+
+      - name: Download the prebuilt image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-cpu-image
+          path: /tmp
+
+      - name: Load the image
+        run: gunzip -c /tmp/docker-cpu.tar.gz | docker load
+
+      # a few seconds, against hours: most sampled runners turn out to be a
+      # CPU class that is already recorded, and those jobs can stop here
+      - name: Is this machine's kernel profile already recorded?
+        id: probe
+        run: |
+          set -o pipefail
+          docker run --rm -v ${GITHUB_WORKSPACE}:/src:ro \
+            --cpus=4 -m 20g docker-cpu:1.0 \
+            bash -c "cd src; python3 cnn_lib/test/conftest.py" | tee /tmp/probe.txt
+          # the probe prints one line, "<fingerprint> known|unknown", but keep
+          # only the last line in case anything else reaches stdout
+          read -r FP STATE <<< "$(tail -1 /tmp/probe.txt)"
+          # anything other than these two words would silently read as "not
+          # unknown" in the step conditions below, i.e. look exactly like an
+          # already-recorded machine - so refuse to continue on anything else
+          case "$STATE" in
+            known|unknown) ;;
+            *) echo "probe returned '$STATE', expected known|unknown" >&2
+               cat /tmp/probe.txt >&2
+               exit 1 ;;
+          esac
+          echo "fingerprint=$FP" >> $GITHUB_OUTPUT
+          echo "state=$STATE" >> $GITHUB_OUTPUT
+          # recorded in the summary so the outcome is readable without logs
+          {
+            echo "| field | value |"
+            echo "| --- | --- |"
+            echo "| kernel profile | \`$FP\` |"
+            echo "| state | **$STATE** |"
+            echo "| CPU | $(lscpu | sed -n 's/^Model name: *//p') |"
+            echo "| L1d | $(cat /sys/devices/system/cpu/cpu0/cache/index0/size) |"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Download test data
+        if: steps.probe.outputs.state == 'unknown'
+        run: |
+          pip install zenodo_get && \
+          zenodo_get 7040177 -o /tmp/ && \
+          7z x /tmp/venus_clouds_v1.0.7z -o/tmp/training_data && \
+          rm /tmp/training_data/training_set_clouds_multiclass/s*
+
+      # A recording pass builds every model of the test function, because
+      # nothing fails early, and TensorFlow does not give the memory back
+      # between them - hence the large -m.
+      - name: Record the profile and its reference outputs
+        if: steps.probe.outputs.state == 'unknown'
+        run: |
+          docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw \
+            -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
+            -e CNN_LIB_RECORD_PROFILE=1 \
+            -e MALLOC_ARENA_MAX=2 \
+            --cpus=4 -m 20g docker-cpu:1.0 \
+            bash -c "cd src; pip install .; \
+              pytest cnn_lib/test/consistency_test.py::TestCmd::${{ matrix.test }}"
+
+      # uploaded even on failure or timeout, so partial work is not lost
+      - name: Upload the recorded profile
+        if: always() && steps.probe.outputs.state == 'unknown'
+        uses: actions/upload-artifact@v4
+        with:
+          name: "kernel-profile-${{ steps.probe.outputs.fingerprint }}-${{ matrix.test }}-${{ matrix.sample }}"
+          if-no-files-found: warn
+          path: |
+            cnn_lib/test/kernel_profiles.json
+            cnn_lib/test/consistency_outputs/**

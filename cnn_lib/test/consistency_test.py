@@ -8,6 +8,20 @@ from difflib import unified_diff
 import cnn_lib.train as train
 
 
+def stored_fn(identifier):
+    """Path of the reference output valid for this machine.
+
+    :param identifier: identifier of the training setting
+    :return: path to the stored output file
+    """
+    return os.path.join(
+        os.environ.get(
+            'CNN_LIB_OUTPUTS_DIR', 'cnn_lib/test/consistency_outputs'
+        ),
+        f'{identifier}.txt',
+    )
+
+
 def report_file(identifier):
     """Report the inconsistency of two files.
 
@@ -22,9 +36,7 @@ def report_file(identifier):
     )
 
     with open(f'/tmp/{identifier}.txt') as left:
-        with open(
-            f'cnn_lib/test/consistency_outputs/{identifier}.txt'
-        ) as right:
+        with open(stored_fn(identifier)) as right:
             sys.stdout.writelines(
                 unified_diff(left.readlines(), right.readlines())
             )
@@ -33,18 +45,21 @@ def report_file(identifier):
 
 
 class TestCmd:
-    def test_001_main_architectures(self, capsys):
+    def test_001a_plain_architectures(self, capsys):
         """Test the consistency of a small cloud classification sample.
 
-        Test all architectures with and without droput.
+        Test U-Net and SegNet, with and without dropout.
 
-        :param capsys: a builtin pytest fixture that ispassed into any test to
-                       capture stdin/stdout
+        Split out of the former test_001_main_architectures: run as its
+        own process, it builds far fewer models, and TensorFlow does not
+        release memory between them.
+
+        :param capsys: a builtin pytest fixture that ispassed into any
+                       test to capture stdin/stdout
         """
         training_data_dir = os.path.join(
             '/tmp', 'training_data', 'training_set_clouds_multiclass'
         )
-        # TODO: Add continue
 
         # tests for architectures without backbone models
         for architecture in ('U-Net', 'SegNet'):
@@ -78,10 +93,26 @@ class TestCmd:
 
                 assert filecmp.cmp(
                     f'/tmp/{identifier}.txt',
-                    f'cnn_lib/test/consistency_outputs/{identifier}.txt',
+                    stored_fn(identifier),
                 ), report_file(identifier)
 
                 shutil.rmtree(output_dir)
+
+    def test_001b_deeplab_backbones(self, capsys):
+        """Test the consistency of a small cloud classification sample.
+
+        Test DeepLab over its ResNet backbones, with and without dropout.
+
+        Split out of the former test_001_main_architectures: run as its
+        own process, it builds far fewer models, and TensorFlow does not
+        release memory between them.
+
+        :param capsys: a builtin pytest fixture that ispassed into any
+                       test to capture stdin/stdout
+        """
+        training_data_dir = os.path.join(
+            '/tmp', 'training_data', 'training_set_clouds_multiclass'
+        )
 
         # tests for architectures with backbone models
         architecture = 'DeepLab'
@@ -117,10 +148,26 @@ class TestCmd:
 
                 assert filecmp.cmp(
                     f'/tmp/{identifier}.txt',
-                    f'cnn_lib/test/consistency_outputs/{identifier}.txt',
+                    stored_fn(identifier),
                 ), report_file(identifier)
 
                 shutil.rmtree(output_dir)
+
+    def test_001c_fcn_backbone(self, capsys):
+        """Test the consistency of a small cloud classification sample.
+
+        Test FCN/VGG16, with and without dropout.
+
+        Split out of the former test_001_main_architectures: run as its
+        own process, it builds far fewer models, and TensorFlow does not
+        release memory between them.
+
+        :param capsys: a builtin pytest fixture that ispassed into any
+                       test to capture stdin/stdout
+        """
+        training_data_dir = os.path.join(
+            '/tmp', 'training_data', 'training_set_clouds_multiclass'
+        )
 
         architecture = 'FCN'
         for backbone in ('VGG16',):
@@ -155,7 +202,7 @@ class TestCmd:
 
                 assert filecmp.cmp(
                     f'/tmp/{identifier}.txt',
-                    f'cnn_lib/test/consistency_outputs/{identifier}.txt',
+                    stored_fn(identifier),
                 ), report_file(identifier)
 
                 shutil.rmtree(output_dir)
@@ -203,7 +250,7 @@ class TestCmd:
 
             assert filecmp.cmp(
                 f'/tmp/{identifier}.txt',
-                f'cnn_lib/test/consistency_outputs/{identifier}.txt',
+                stored_fn(identifier),
             ), report_file(identifier)
 
             shutil.rmtree(output_dir)
@@ -241,7 +288,7 @@ class TestCmd:
 
             assert filecmp.cmp(
                 f'/tmp/{identifier}.txt',
-                f'cnn_lib/test/consistency_outputs/{identifier}.txt',
+                stored_fn(identifier),
             ), report_file(identifier)
 
             shutil.rmtree(output_dir)
@@ -289,7 +336,7 @@ class TestCmd:
 
         assert filecmp.cmp(
             f'/tmp/{identifier}.txt',
-            f'cnn_lib/test/consistency_outputs/{identifier}.txt',
+            stored_fn(identifier),
         ), report_file(identifier)
 
         shutil.rmtree(output_dir)

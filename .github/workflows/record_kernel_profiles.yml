@@ -8,11 +8,14 @@ name: record_kernel_profiles
 # Two things keep a job under the 6 hour ceiling:
 #   * the image is built once, in its own job, and shipped to the sampling
 #     jobs as an artifact - that is ~41 minutes each that they no longer pay
-#   * each sampling job records ONE test function, not the whole file
+#   * a sampling job records a GROUP of test functions, not the whole file,
+#     running each of them as its own process so memory does not accumulate
 #
-# Because the test functions run as separate jobs, a profile can be assembled
-# from several jobs that happen to share a fingerprint. merge_kernel_profiles.sh
-# only accepts a profile once every reference output is present.
+# A profile is assembled from the jobs that happened to share a fingerprint,
+# so the fewer groups there are, the fewer separate lucky landings a rare CPU
+# class needs before its profile is complete - one group per test function
+# needed five of them, these two groups need two. merge_kernel_profiles.py
+# accepts a profile only once every reference output is present.
 #
 # How to run it:
 #   * push a branch named record-profiles/<anything>
@@ -48,7 +51,7 @@ jobs:
           retention-days: 1
 
   record:
-    name: "${{ matrix.test }} / sample ${{ matrix.sample }}"
+    name: "${{ matrix.test.name }} / sample ${{ matrix.sample }}"
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 350
@@ -56,14 +59,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # runners to sample; add or remove entries to sample more or fewer
-        sample: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        # Runners to sample; add or remove entries to sample more or fewer.
+        # A sample landing on an already recorded CPU class stops at the probe
+        # after a couple of minutes, so sampling many is cheap once the common
+        # classes are in - and the rare ones need the numbers, because a
+        # profile is complete only when all five test functions have landed on
+        # the same class.
+        sample: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+        # grouped to stay well inside timeout-minutes above: the first group
+        # takes ~215 minutes to record, the second ~141
         test:
-          - test_001a_plain_architectures
-          - test_001b_deeplab_backbones
-          - test_001c_fcn_backbone
-          - test_002_loss
-          - test_003_augmentation
+          - name: architectures
+            functions: >-
+              test_001a_plain_architectures
+              test_001b_deeplab_backbones
+              test_001c_fcn_backbone
+          - name: losses
+            functions: >-
+              test_002_loss
+              test_003_augmentation
 
     steps:
       - name: Checkout
@@ -132,21 +146,28 @@ jobs:
       - name: Record the profile and its reference outputs
         if: steps.probe.outputs.state == 'unknown'
         run: |
-          docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw \
-            -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
-            -e CNN_LIB_RECORD_PROFILE=1 \
-            -e MALLOC_ARENA_MAX=2 \
-            --cpus=4 -m 20g docker-cpu:1.0 \
-            bash -c "cd src; pip install .; \
-              pytest cnn_lib/test/consistency_test.py::TestCmd::${{ matrix.test }}"
+          # one container per test function: TensorFlow does not give the
+          # memory back between models, so a fresh process per function keeps
+          # the peak where it was when each function had a job to itself
+          for test in ${{ matrix.test.functions }}; do
+            echo "::group::$test"
+            docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw \
+              -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
+              -e CNN_LIB_RECORD_PROFILE=1 \
+              -e MALLOC_ARENA_MAX=2 \
+              --cpus=4 -m 20g docker-cpu:1.0 \
+              bash -c "cd src; pip install .; \
+                pytest cnn_lib/test/consistency_test.py::TestCmd::$test"
+            echo "::endgroup::"
+          done
 
       # uploaded even on failure or timeout, so partial work is not lost
       - name: Upload the recorded profile
         if: always() && steps.probe.outputs.state == 'unknown'
         uses: actions/upload-artifact@v4
         with:
-          name: "kernel-profile-${{ steps.probe.outputs.fingerprint }}-${{ matrix.test }}-${{ matrix.sample }}"
+          name: "kernel-profile-${{ steps.probe.outputs.fingerprint }}-${{ matrix.test.name }}-${{ matrix.sample }}"
           if-no-files-found: warn
           path: |
             cnn_lib/test/kernel_profiles.json
-            cnn_lib/test/consistency_outputs/**
+            cnn_lib/test/consistency_outputs/${{ steps.probe.outputs.fingerprint }}/**

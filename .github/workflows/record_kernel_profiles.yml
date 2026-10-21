@@ -10,9 +10,16 @@ name: record_kernel_profiles
 #     jobs as an artifact - that is ~41 minutes each that they no longer pay
 #   * each sampling job records ONE test function, not the whole file
 #
-# Because the test functions run as separate jobs, a profile can be assembled
-# from several jobs that happen to share a fingerprint. merge_kernel_profiles.sh
-# only accepts a profile once every reference output is present.
+# One function per job is not only about time. Running several of them in one
+# job changed what test_001c produced, even with a container and a copy of the
+# data of its own, and the cause was never found - so a function gets a job to
+# itself, which is how every reference output in the repository was recorded.
+#
+# A profile is therefore assembled from several jobs that happen to share a
+# fingerprint, and they need not come from the same run: point
+# merge_kernel_profiles.py at the artifacts of every recording run at once and
+# partial profiles add up. It accepts a profile only once every reference
+# output is present.
 #
 # How to run it:
 #   * push a branch named record-profiles/<anything>
@@ -56,8 +63,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # runners to sample; add or remove entries to sample more or fewer
-        sample: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        # Runners to sample; add or remove entries to sample more or fewer.
+        # A sample landing on an already recorded CPU class stops at the probe
+        # after a couple of minutes, so sampling many is cheap once the common
+        # classes are in - and the rare ones need the numbers, because a
+        # profile is complete only when all five test functions have landed on
+        # the same class.
+        sample: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
         test:
           - test_001a_plain_architectures
           - test_001b_deeplab_backbones
@@ -149,4 +161,4 @@ jobs:
           if-no-files-found: warn
           path: |
             cnn_lib/test/kernel_profiles.json
-            cnn_lib/test/consistency_outputs/**
+            cnn_lib/test/consistency_outputs/${{ steps.probe.outputs.fingerprint }}/**

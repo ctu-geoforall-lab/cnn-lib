@@ -1,0 +1,85 @@
+name: publish_image
+
+# Builds docker/docker-cpu once and pushes it to the repository's container
+# registry, so every workflow afterwards runs the same bytes.
+#
+# Why this exists: the reference outputs in cnn_lib/test/consistency_outputs
+# are byte-exact comparisons of an inference-mode val_loss at batch_size=1.
+# That quantity is ill-conditioned - a change in the last bit of one weight
+# moves it by percent - so it is only reproducible against one environment.
+# Rebuilding the image in every run made the environment change silently:
+# neither the base tag nor the apt layer is pinned, so a rebuild weeks later
+# is a different image. It showed up first in the FCN outputs, which at 199M
+# parameters are the most sensitive thing the suite prints, while the other
+# fifteen outputs were still absorbing it.
+#
+# After running this:
+#   1. put the digest it prints into docker/image.txt and commit it
+#   2. re-record every kernel profile - the outputs recorded against the
+#      previous image do not apply to this one
+#
+# Run it only when the image genuinely has to change. Every run costs a full
+# re-recording.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: build and publish the image
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Log in to the registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build
+        run: |
+          docker build docker/docker-cpu \
+            -t ghcr.io/${{ github.repository }}-cpu:latest
+
+      - name: Record what ended up in it
+        run: |
+          docker run --rm ghcr.io/${{ github.repository }}-cpu:latest \
+            bash -c "pip freeze; python3 -c \"import tensorflow as tf, keras, numpy; print('tensorflow', tf.__version__); print('keras', keras.__version__); print('numpy', numpy.__version__)\"" \
+            | tee /tmp/freeze.txt
+
+      - name: Push
+        id: push
+        run: |
+          docker push ghcr.io/${{ github.repository }}-cpu:latest
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' \
+            ghcr.io/${{ github.repository }}-cpu:latest)
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+
+      - name: Say what to do with it
+        run: |
+          {
+            echo '## Pin this image'
+            echo
+            echo 'Put this single line in `docker/image.txt`, commit it, then'
+            echo 'rerecord every kernel profile - the reference outputs'
+            echo 'recorded against the previous image are not valid here.'
+            echo
+            echo '```'
+            echo '${{ steps.push.outputs.digest }}'
+            echo '```'
+            echo
+            echo '<details><summary>what is installed in it</summary>'
+            echo
+            echo '```'
+            cat /tmp/freeze.txt
+            echo '```'
+            echo
+            echo '</details>'
+          } >> $GITHUB_STEP_SUMMARY

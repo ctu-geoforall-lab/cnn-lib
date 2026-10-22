@@ -22,6 +22,11 @@ name: publish_image
 # re-recording.
 
 on:
+  # temporary, until this file is on the default branch and the Run workflow
+  # button appears - a workflow_dispatch trigger is only offered there
+  push:
+    branches:
+      - 'pin-the-image'
   workflow_dispatch:
 
 jobs:

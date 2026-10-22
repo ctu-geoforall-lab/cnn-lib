@@ -165,10 +165,24 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('run', nargs='?', help='workflow run id')
     parser.add_argument('-d', dest='directory', help='downloaded artifacts')
+    parser.add_argument(
+        '--partial',
+        action='store_true',
+        help='let an already recorded profile be updated with only some of '
+        'its reference outputs, for a rerecord_outputs run',
+    )
     args = parser.parse_args()
 
     if not os.path.isdir(os.path.dirname(OUT)):
         fail('run this from the root of the cnn-lib checkout')
+
+    # a fingerprint sharing another's directory has none of its own, and its
+    # runners stop at the probe instead of recording, so it appears neither
+    # on disk nor in the artifacts - read it now or lose it
+    recorded = {}
+    if os.path.isfile(PROFILES_FN):
+        with open(PROFILES_FN) as profiles_file:
+            recorded = json.load(profiles_file)['profiles']
 
     # it is gone whenever no profile is recorded yet - git does not keep an
     # empty directory
@@ -193,12 +207,20 @@ def main():
     ):
         fail('the fingerprint is not capturing everything that varies')
 
+    # what a profile has to hold: every output this run produced, plus every
+    # output the profiles already in the repository hold. Without the second
+    # half, merging a run that re-recorded a single test function would find
+    # nothing missing and register two-file profiles as complete.
     expected = {
         name
         for directories in found.values()
         for directory in directories
         for name in outputs(directory)
     }
+    for name in set(recorded.values()):
+        directory = os.path.join(OUT, name)
+        if os.path.isdir(directory):
+            expected.update(outputs(directory))
     print(
         f'\nChecking completeness against the {len(expected)} distinct '
         'reference outputs seen:'
@@ -210,23 +232,40 @@ def main():
             name for directory in directories for name in outputs(directory)
         }
         missing = sorted(expected - names)
-        if missing:
+        if not missing:
+            print(f'  {fingerprint}: complete')
+            complete[fingerprint] = directories
+        elif args.partial:
+            if fingerprint not in recorded:
+                # nothing to update, and a run that re-recorded one test
+                # function cannot establish a whole profile
+                print(
+                    f'  {fingerprint}: not recorded yet, skipped - run the '
+                    'full recording workflow for it'
+                )
+                continue
+            # a rerecord run carries only the outputs it was asked to redo;
+            # the rest of the profile is already in the repository
+            print(
+                f'  {fingerprint}: partial, updating {len(names)} file(s) in '
+                f'{recorded[fingerprint]}/'
+            )
+            complete[fingerprint] = directories
+        else:
             print(
                 f'  {fingerprint}: INCOMPLETE, missing {len(missing)} '
                 f'({", ".join(missing[:3])}{" ..." if len(missing) > 3 else ""})'
             )
-        else:
-            print(f'  {fingerprint}: complete')
-            complete[fingerprint] = directories
 
     if not complete:
         fail('no complete profile to merge - sample more runners')
 
     # copy the recorded outputs in before removing the old flat ones, so the
     # directory never becomes empty (git would drop it)
-    print(f'\nCopying {len(complete)} complete profile(s) into {OUT}/')
+    print(f'\nCopying {len(complete)} profile(s) into {OUT}/')
     for fingerprint, directories in complete.items():
-        target = os.path.join(OUT, fingerprint)
+        # a fingerprint sharing another's directory writes into that one
+        target = os.path.join(OUT, recorded.get(fingerprint, fingerprint))
         os.makedirs(target, exist_ok=True)
         for directory in directories:
             for name in outputs(directory):
@@ -262,6 +301,19 @@ def main():
                 os.path.join(OUT, fingerprint), os.path.join(OUT, other)
             ):
                 profiles[other] = fingerprint
+
+    # profiles that were already recorded keep their directory, following it
+    # if this run turned that directory into a shared one
+    for fingerprint, target in sorted(recorded.items()):
+        if fingerprint in profiles:
+            continue
+        if target in profiles:
+            profiles[fingerprint] = profiles[target]
+        else:
+            print(
+                f'\nwarning: dropping {fingerprint}, the directory it used '
+                f'({target}) is gone'
+            )
 
     sharing = {fp: to for fp, to in profiles.items() if fp != to}
     if sharing:

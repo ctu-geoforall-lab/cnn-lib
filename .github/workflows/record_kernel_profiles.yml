@@ -6,8 +6,11 @@ name: record_kernel_profiles
 # so this is the only way to enumerate them.
 #
 # Two things keep a job under the 6 hour ceiling:
-#   * the image is built once, in its own job, and shipped to the sampling
-#     jobs as an artifact - that is ~41 minutes each that they no longer pay
+#   * the image is pulled, not built - see docker/image.txt and
+#     publish_image.yml. That is ~41 minutes each that no job pays, and more
+#     importantly it is the SAME image every time: the reference outputs are
+#     byte-exact comparisons of a quantity ill-conditioned enough that a
+#     rebuilt image moves it.
 #   * each sampling job records ONE test function, not the whole file
 #
 # One function per job is not only about time. Running several of them in one
@@ -34,31 +37,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: build docker once
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Build docker
-        run: docker build docker/docker-cpu -t docker-cpu:1.0
-
-      - name: Export the image for the sampling jobs
-        run: docker save docker-cpu:1.0 | gzip -1 > /tmp/docker-cpu.tar.gz
-
-      - name: Upload the image
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-cpu-image
-          path: /tmp/docker-cpu.tar.gz
-          retention-days: 1
-
   record:
     name: "${{ matrix.test }} / sample ${{ matrix.sample }}"
-    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 350
+
+    permissions:
+      contents: read
+      packages: read
 
     strategy:
       fail-fast: false
@@ -88,14 +74,16 @@ jobs:
           echo "L2:  $(cat /sys/devices/system/cpu/cpu0/cache/index2/size)"
           free -g
 
-      - name: Download the prebuilt image
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-cpu-image
-          path: /tmp
-
-      - name: Load the image
-        run: gunzip -c /tmp/docker-cpu.tar.gz | docker load
+      # the one image the reference outputs are valid against
+      - name: Pull the pinned image
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          IMAGE=$(cat docker/image.txt)
+          docker pull "$IMAGE"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          # in the log, so a future drift is one diff away
+          docker run --rm "$IMAGE" pip freeze
 
       # a few seconds, against hours: most sampled runners turn out to be a
       # CPU class that is already recorded, and those jobs can stop here
@@ -104,7 +92,7 @@ jobs:
         run: |
           set -o pipefail
           docker run --rm -v ${GITHUB_WORKSPACE}:/src:ro \
-            --cpus=4 -m 20g docker-cpu:1.0 \
+            --cpus=4 -m 20g "$IMAGE" \
             bash -c "cd src; python3 cnn_lib/test/conftest.py" | tee /tmp/probe.txt
           # the probe prints one line, "<fingerprint> known|unknown", but keep
           # only the last line in case anything else reaches stdout
@@ -128,6 +116,7 @@ jobs:
             echo "| state | **$STATE** |"
             echo "| CPU | $(lscpu | sed -n 's/^Model name: *//p') |"
             echo "| L1d | $(cat /sys/devices/system/cpu/cpu0/cache/index0/size) |"
+            echo "| image | \`$IMAGE\` |"
           } >> $GITHUB_STEP_SUMMARY
 
       - name: Download test data
@@ -148,7 +137,7 @@ jobs:
             -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
             -e CNN_LIB_RECORD_PROFILE=1 \
             -e MALLOC_ARENA_MAX=2 \
-            --cpus=4 -m 20g docker-cpu:1.0 \
+            --cpus=4 -m 20g "$IMAGE" \
             bash -c "cd src; pip install .; \
               pytest cnn_lib/test/consistency_test.py::TestCmd::${{ matrix.test }}"
 

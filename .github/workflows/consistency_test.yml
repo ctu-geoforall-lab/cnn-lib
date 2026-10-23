@@ -48,20 +48,39 @@ jobs:
       - name: pytest
         run: |
           set -o pipefail
-          # Every flag below has to match the recording step in
-          # record_kernel_profiles.yml exactly. The comparison is byte-exact
-          # on an inference-mode val_loss at batch_size=1, and FCN at 199M
-          # parameters is sensitive enough to notice the allocator arena count
-          # and the memory limit: recorded one way and verified the other, it
-          # disagreed every time while the other fourteen outputs matched.
-          # One container per test function, for the same reason - that is how
-          # the references were recorded.
+          # Every flag below matches the recording step in
+          # record_kernel_profiles.yml exactly, and each test function gets a
+          # container of its own, because that is how the references were
+          # recorded - one function per job, on a runner where nothing else
+          # had run.
+          #
+          # The data directory is restored from a pristine copy before each
+          # function for the same reason. A recording job saw a freshly
+          # downloaded dataset; here five functions share one, and whatever
+          # the earlier ones leave behind is visible to the later ones.
+          # test_001c trains at 192x192 while everything before it trains at
+          # 256x256, and it was the one output that never matched.
+          #
+          # The checksums printed on either side of the restore say whether
+          # the tests do in fact write into the dataset. If they never differ,
+          # this restore is harmless and the cause is elsewhere.
+          cp -a /tmp/training_data /tmp/training_data.pristine
+
+          digest () {
+            find /tmp/training_data -type f -print0 \
+              | sort -z | xargs -0 md5sum 2>/dev/null | md5sum | cut -c1-12
+          }
+
           for t in test_001a_plain_architectures \
                    test_001b_deeplab_backbones \
                    test_001c_fcn_backbone \
                    test_002_loss \
                    test_003_augmentation; do
             echo "::group::$t"
+            echo "dataset before restore: $(digest)"
+            rm -rf /tmp/training_data
+            cp -a /tmp/training_data.pristine /tmp/training_data
+            echo "dataset after restore:  $(digest)"
             docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw \
               -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
               -e MALLOC_ARENA_MAX=2 \

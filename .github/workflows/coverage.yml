@@ -90,4 +90,4 @@ jobs:
         uses: MishaKav/pytest-coverage-comment@main
         with:
           pytest-coverage-path: /tmp/pytest-coverage.txt
-          junitxml-path: /tmp/pytest-*.xml
+          junitxml-path: /tmp/pytest.xml

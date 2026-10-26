@@ -42,7 +42,7 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" \
             | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          IMAGE=$(cat docker/image.txt)
+          IMAGE=ghcr.io/ctu-geoforall-lab/cnn-lib-cpu@sha256:4a62ada6f011b471e50dc8256f7243accae374b9cc0396eab7a1489c01509baa
           docker pull "$IMAGE"
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
       - name: pytest

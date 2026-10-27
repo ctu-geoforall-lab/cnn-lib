@@ -12,8 +12,6 @@ ENV GEOS_VERSION 3.9.1
 ENV PROJ_VERSION 7.2.1
 ENV GDAL_VERSION 3.5.3
 
-ENV OMP_NUM_THREADS=1
-
 RUN apt-get update
 
 # create temporary dir for compilations

@@ -56,10 +56,13 @@ jobs:
           #
           # The data directory is restored from a pristine copy before each
           # function for the same reason. A recording job saw a freshly
-          # downloaded dataset; here five functions share one, and whatever
+          # downloaded dataset; here the functions share one, and whatever
           # the earlier ones leave behind is visible to the later ones.
-          # test_001c trains at 192x192 while everything before it trains at
-          # 256x256, and it was the one output that never matched.
+          #
+          # Note this cannot help INSIDE test_001_main_architectures, which
+          # trains U-Net and SegNet and DeepLab at 256x256 and then FCN at
+          # 192x192 in one process, with no point in between to restore
+          # anything. If FCN disagrees, that is why.
           #
           # The checksums printed on either side of the restore show it
           # happening: they differ from the second function onwards, because
@@ -76,9 +79,7 @@ jobs:
               | sort -z | xargs -0 md5sum" 2>/dev/null | md5sum | cut -c1-12
           }
 
-          for t in test_001a_plain_architectures \
-                   test_001b_deeplab_backbones \
-                   test_001c_fcn_backbone \
+          for t in test_001_main_architectures \
                    test_002_loss \
                    test_003_augmentation; do
             echo "::group::$t"

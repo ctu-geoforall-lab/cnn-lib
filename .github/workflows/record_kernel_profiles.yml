@@ -57,9 +57,7 @@ jobs:
         # the same class.
         sample: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
         test:
-          - test_001a_plain_architectures
-          - test_001b_deeplab_backbones
-          - test_001c_fcn_backbone
+          - test_001_main_architectures
           - test_002_loss
           - test_003_augmentation
 

@@ -45,7 +45,7 @@ def report_file(identifier):
 
 
 class TestCmd:
-    def test_001a_plain_architectures(self, capsys):
+    def test_001_main_architectures(self, capsys):
         """Test the consistency of a small cloud classification sample.
 
         Test U-Net and SegNet, with and without dropout.
@@ -98,22 +98,6 @@ class TestCmd:
 
                 shutil.rmtree(output_dir)
 
-    def test_001b_deeplab_backbones(self, capsys):
-        """Test the consistency of a small cloud classification sample.
-
-        Test DeepLab over its ResNet backbones, with and without dropout.
-
-        Split out of the former test_001_main_architectures: run as its
-        own process, it builds far fewer models, and TensorFlow does not
-        release memory between them.
-
-        :param capsys: a builtin pytest fixture that ispassed into any
-                       test to capture stdin/stdout
-        """
-        training_data_dir = os.path.join(
-            '/tmp', 'training_data', 'training_set_clouds_multiclass'
-        )
-
         # tests for architectures with backbone models
         architecture = 'DeepLab'
         for backbone in ('ResNet50', 'ResNet101', 'ResNet152'):
@@ -152,22 +136,6 @@ class TestCmd:
                 ), report_file(identifier)
 
                 shutil.rmtree(output_dir)
-
-    def test_001c_fcn_backbone(self, capsys):
-        """Test the consistency of a small cloud classification sample.
-
-        Test FCN/VGG16, with and without dropout.
-
-        Split out of the former test_001_main_architectures: run as its
-        own process, it builds far fewer models, and TensorFlow does not
-        release memory between them.
-
-        :param capsys: a builtin pytest fixture that ispassed into any
-                       test to capture stdin/stdout
-        """
-        training_data_dir = os.path.join(
-            '/tmp', 'training_data', 'training_set_clouds_multiclass'
-        )
 
         architecture = 'FCN'
         for backbone in ('VGG16',):

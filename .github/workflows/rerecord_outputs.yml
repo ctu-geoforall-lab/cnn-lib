@@ -1,0 +1,135 @@
+name: rerecord_outputs
+
+# Re-records ONE test function on every runner it lands on, whether or not
+# that runner's kernel profile is already recorded.
+#
+# This exists because pinning the image (see publish_image.yml) invalidated
+# part of the recorded set: the FCN outputs, being the most ill-conditioned
+# thing the suite prints, differ between the image the profiles were recorded
+# against and the pinned one. The other fourteen outputs were identical across
+# every image seen so far, so re-recording all of them would throw away
+# profiles that took several runs to assemble, for no gain.
+#
+# The normal recording workflow cannot do this: it stops at the probe as soon
+# as a profile is known, which is every profile that needs correcting.
+#
+# How to run it:
+#   * push a branch named rerecord/<anything>
+#   * then merge with: merge_kernel_profiles.py --partial -d <artifacts>
+#
+# Delete this file once the recorded set is consistent again.
+
+on:
+  push:
+    branches:
+      - 'rerecord/**'
+  workflow_dispatch:
+
+jobs:
+  record:
+    name: "${{ matrix.test }} / sample ${{ matrix.sample }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    permissions:
+      contents: read
+      packages: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Runners to sample. Nothing stops at the probe here, so every one
+        # of these records - but only one test function, and a profile needs
+        # a single landing to be corrected rather than five.
+        sample: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+        # the function whose outputs need correcting
+        test:
+          - test_001c_fcn_backbone
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Report the hardware this sample landed on
+        run: |
+          lscpu | grep -E 'Model name|Vendor ID|CPU family|Model:|Stepping'
+          echo "L1d: $(cat /sys/devices/system/cpu/cpu0/cache/index0/size)"
+          echo "L2:  $(cat /sys/devices/system/cpu/cpu0/cache/index2/size)"
+          free -g
+
+      # the one image the reference outputs are valid against
+      - name: Pull the pinned image
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          IMAGE=$(cat docker/image.txt)
+          docker pull "$IMAGE"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          # in the log, so a future drift is one diff away
+          docker run --rm "$IMAGE" pip freeze
+
+      # a few seconds, against hours: most sampled runners turn out to be a
+      # CPU class that is already recorded, and those jobs can stop here
+      # kept only to learn this runner's fingerprint - it gates nothing here
+      - name: Is this machine's kernel profile already recorded?
+        id: probe
+        run: |
+          set -o pipefail
+          docker run --rm -v ${GITHUB_WORKSPACE}:/src:ro \
+            --cpus=4 -m 20g "$IMAGE" \
+            bash -c "cd src; python3 cnn_lib/test/conftest.py" | tee /tmp/probe.txt
+          # the probe prints one line, "<fingerprint> known|unknown", but keep
+          # only the last line in case anything else reaches stdout
+          read -r FP STATE <<< "$(tail -1 /tmp/probe.txt)"
+          # anything other than these two words would silently read as "not
+          # unknown" in the step conditions below, i.e. look exactly like an
+          # already-recorded machine - so refuse to continue on anything else
+          case "$STATE" in
+            known|unknown) ;;
+            *) echo "probe returned '$STATE', expected known|unknown" >&2
+               cat /tmp/probe.txt >&2
+               exit 1 ;;
+          esac
+          echo "fingerprint=$FP" >> $GITHUB_OUTPUT
+          echo "state=$STATE" >> $GITHUB_OUTPUT
+          # recorded in the summary so the outcome is readable without logs
+          {
+            echo "| field | value |"
+            echo "| --- | --- |"
+            echo "| kernel profile | \`$FP\` |"
+            echo "| state | **$STATE** |"
+            echo "| CPU | $(lscpu | sed -n 's/^Model name: *//p') |"
+            echo "| L1d | $(cat /sys/devices/system/cpu/cpu0/cache/index0/size) |"
+            echo "| image | \`$IMAGE\` |"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Download test data
+        run: |
+          pip install zenodo_get && \
+          zenodo_get 7040177 -o /tmp/ && \
+          7z x /tmp/venus_clouds_v1.0.7z -o/tmp/training_data && \
+          rm /tmp/training_data/training_set_clouds_multiclass/s*
+
+      # A recording pass builds every model of the test function, because
+      # nothing fails early, and TensorFlow does not give the memory back
+      # between them - hence the large -m.
+      - name: Record the profile and its reference outputs
+        run: |
+          docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw \
+            -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
+            -e CNN_LIB_RECORD_PROFILE=1 \
+            -e MALLOC_ARENA_MAX=2 \
+            --cpus=4 -m 20g "$IMAGE" \
+            bash -c "cd src; pip install .; \
+              pytest cnn_lib/test/consistency_test.py::TestCmd::${{ matrix.test }}"
+
+      # uploaded even on failure or timeout, so partial work is not lost
+      - name: Upload the recorded profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "kernel-profile-${{ steps.probe.outputs.fingerprint }}-${{ matrix.test }}-${{ matrix.sample }}"
+          if-no-files-found: warn
+          path: |
+            cnn_lib/test/kernel_profiles.json
+            cnn_lib/test/consistency_outputs/${{ steps.probe.outputs.fingerprint }}/**

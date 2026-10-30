@@ -22,6 +22,9 @@ jobs:
   consistency-test:
     name: build docker and run tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
 
     strategy:
       fail-fast: false
@@ -35,8 +38,59 @@ jobs:
           zenodo_get 7040177 -o /tmp/ && \
           7z x /tmp/venus_clouds_v1.0.7z -o/tmp/training_data && \
           rm /tmp/training_data/training_set_clouds_multiclass/s*
-      - name: Build docker
-        run: docker build docker/docker-cpu -t docker-cpu:1.0
+      - name: Pull the pinned image
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          IMAGE=ghcr.io/ctu-geoforall-lab/cnn-lib-cpu@sha256:4a62ada6f011b471e50dc8256f7243accae374b9cc0396eab7a1489c01509baa
+          docker pull "$IMAGE"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
       - name: pytest
         run: |
-          docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:ro -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src --cpus=2 -m 20g docker-cpu:1.0 bash -c "cd src; pip install .; pytest cnn_lib/test/consistency_test.py"
+          set -o pipefail
+          # Every flag below matches the recording step in
+          # record_kernel_profiles.yml exactly, and each test function gets a
+          # container of its own, because that is how the references were
+          # recorded - one function per job, on a runner where nothing else
+          # had run.
+          #
+          # The data directory is restored from a pristine copy before each
+          # function for the same reason. A recording job saw a freshly
+          # downloaded dataset; here five functions share one, and whatever
+          # the earlier ones leave behind is visible to the later ones.
+          # test_001c trains at 192x192 while everything before it trains at
+          # 256x256, and it was the one output that never matched.
+          #
+          # The checksums printed on either side of the restore show it
+          # happening: they differ from the second function onwards, because
+          # the library writes its generated train_masks/ and val_masks/ into
+          # the data directory and does not key them by tensor_shape.
+          #
+          # sudo throughout: the containers run as root, so everything the
+          # tests generate in the dataset is root-owned and the runner cannot
+          # remove it otherwise.
+          cp -a /tmp/training_data /tmp/training_data.pristine
+
+          digest () {
+            sudo sh -c "find /tmp/training_data -type f -print0 \
+              | sort -z | xargs -0 md5sum" 2>/dev/null | md5sum | cut -c1-12
+          }
+
+          for t in test_001a_plain_architectures \
+                   test_001b_deeplab_backbones \
+                   test_001c_fcn_backbone \
+                   test_002_loss \
+                   test_003_augmentation; do
+            echo "::group::$t"
+            echo "dataset before restore: $(digest)"
+            sudo rm -rf /tmp/training_data
+            sudo cp -a /tmp/training_data.pristine /tmp/training_data
+            echo "dataset after restore:  $(digest)"
+            docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw \
+              -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
+              -e MALLOC_ARENA_MAX=2 \
+              --cpus=4 -m 20g "$IMAGE" \
+              bash -c "cd src; pip install .; \
+                pytest cnn_lib/test/consistency_test.py::TestCmd::$t"
+            echo "::endgroup::"
+          done

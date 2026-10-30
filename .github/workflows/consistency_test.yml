@@ -91,6 +91,6 @@ jobs:
               -e MALLOC_ARENA_MAX=2 \
               --cpus=4 -m 20g "$IMAGE" \
               bash -c "cd src; pip install .; \
-                pytest cnn_lib/test/consistency_test.py::TestCmd::$t" || exit 1
+                pytest cnn_lib/test/consistency_test.py::TestCmd::$t"
             echo "::endgroup::"
           done

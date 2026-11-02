@@ -86,7 +86,7 @@ jobs:
             sudo rm -rf /tmp/training_data
             sudo cp -a /tmp/training_data.pristine /tmp/training_data
             echo "dataset after restore:  $(digest)"
-            docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw \
+            docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:ro \
               -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
               -e MALLOC_ARENA_MAX=2 \
               --cpus=4 -m 20g "$IMAGE" \

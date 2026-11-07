@@ -56,10 +56,9 @@ jobs:
                    test_002_loss \
                    test_003_augmentation; do
             echo "::group::$t"
-            echo "dataset before restore: $(digest)"
             sudo rm -rf /tmp/training_data
             sudo cp -a /tmp/training_data.pristine /tmp/training_data
-            echo "dataset after restore:  $(digest)"
+
             docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:ro \
               -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
               --cpus=4 -m 20g "$IMAGE" \

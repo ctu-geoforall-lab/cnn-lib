@@ -50,11 +50,6 @@ jobs:
           # data directory is restored from a pristine copy before each test
           cp -a /tmp/training_data /tmp/training_data.pristine
 
-          digest () {
-            sudo sh -c "find /tmp/training_data -type f -print0 \
-              | sort -z | xargs -0 md5sum" 2>/dev/null | md5sum | cut -c1-12
-          }
-
           for t in test_001a_plain_architectures \
                    test_001b_deeplab_backbones \
                    test_001c_fcn_backbone \

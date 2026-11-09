@@ -2,32 +2,6 @@ name: publish_image
 
 # Builds docker/docker-cpu once and pushes it to the repository's container
 # registry, so every workflow afterwards runs the same bytes.
-#
-# Why this exists: the reference outputs in cnn_lib/test/consistency_outputs
-# are byte-exact comparisons of an inference-mode val_loss at batch_size=1.
-# That quantity is ill-conditioned - a change in the last bit of one weight
-# moves it by percent - so it is only reproducible against one environment.
-# Rebuilding the image in every run made the environment change silently:
-# neither the base tag nor the apt layer is pinned, so a rebuild weeks later
-# is a different image. It showed up first in the FCN outputs, which at 199M
-# parameters are the most sensitive thing the suite prints, while the other
-# fifteen outputs were still absorbing it.
-#
-# After running this:
-#   1. put the digest it prints into docker/image.txt and commit it
-#   2. re-record every kernel profile - the outputs recorded against the
-#      previous image do not apply to this one
-#
-# Run it only when the image genuinely has to change. Every run costs a full
-# re-recording.
-
-on:
-  # temporary, until this file is on the default branch and the Run workflow
-  # button appears - a workflow_dispatch trigger is only offered there
-  push:
-    branches:
-      - 'pin-the-image'
-  workflow_dispatch:
 
 jobs:
   publish:

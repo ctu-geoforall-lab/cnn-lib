@@ -81,7 +81,6 @@ def run(
             os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
         tf.config.threading.set_intra_op_parallelism_threads(1)
-        tf.config.threading.set_inter_op_parallelism_threads(1)
 
     model = create_model(
         model,

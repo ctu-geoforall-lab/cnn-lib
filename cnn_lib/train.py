@@ -74,11 +74,6 @@ def run(
         else:
             tf.random.set_seed(seed)
             tf.keras.utils.set_random_seed(seed)
-        try:
-            tf.config.experimental.enable_op_determinism()
-        except AttributeError:
-            # TF < 2.8
-            os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
     model = create_model(
         model,

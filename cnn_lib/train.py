@@ -67,7 +67,7 @@ def run(
         os.path.join(data_dir, 'label_colors.txt')
     )
 
-    # set the seeds and make the op execution deterministic
+    # set the seeds
     if seed is not None:
         if int(tf.__version__.split('.')[1]) < 4:
             tf.random.set_seed(seed)

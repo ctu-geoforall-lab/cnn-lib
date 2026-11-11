@@ -50,10 +50,6 @@ class TestCmd:
 
         Test U-Net and SegNet, with and without dropout.
 
-        Split out of the former test_001_main_architectures: run as its
-        own process, it builds far fewer models, and TensorFlow does not
-        release memory between them.
-
         :param capsys: a builtin pytest fixture that ispassed into any
                        test to capture stdin/stdout
         """
@@ -102,10 +98,6 @@ class TestCmd:
         """Test the consistency of a small cloud classification sample.
 
         Test DeepLab over its ResNet backbones, with and without dropout.
-
-        Split out of the former test_001_main_architectures: run as its
-        own process, it builds far fewer models, and TensorFlow does not
-        release memory between them.
 
         :param capsys: a builtin pytest fixture that ispassed into any
                        test to capture stdin/stdout
@@ -157,10 +149,6 @@ class TestCmd:
         """Test the consistency of a small cloud classification sample.
 
         Test FCN/VGG16, with and without dropout.
-
-        Split out of the former test_001_main_architectures: run as its
-        own process, it builds far fewer models, and TensorFlow does not
-        release memory between them.
 
         :param capsys: a builtin pytest fixture that ispassed into any
                        test to capture stdin/stdout

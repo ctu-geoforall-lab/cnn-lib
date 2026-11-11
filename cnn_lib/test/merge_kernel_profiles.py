@@ -5,8 +5,7 @@
     ./merge_kernel_profiles.py <run-id>        # a specific run
     ./merge_kernel_profiles.py -d <directory>  # artifacts already downloaded
 
-Run it from the root of the cnn-lib checkout you want to update. Nothing is
-committed - inspect `git status` afterwards.
+Nothing is committed - inspect `git status` afterwards.
 
 Each sampling job records one test function, so a profile is assembled from
 several jobs that happened to land on CPUs with the same fingerprint. A
@@ -14,151 +13,74 @@ profile is merged only once every reference output is present; an incomplete
 one would make the consistency test fail on a missing file instead of
 skipping.
 
-Two fingerprints can turn out to produce byte-identical outputs - the
-fingerprint tells CPUs apart, and more CPUs differ than compute float32
-differently. Those are pointed at one directory, so the same reference
-outputs are stored once however many CPU classes reach them.
+The fingerprint tells CPUs apart, and more CPUs differ than compute float32
+differently, so profiles with byte-identical outputs are pointed at one
+directory instead of each storing a copy.
 """
 
 import argparse
-import filecmp
 import json
-import os
 import shutil
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
-OUT = os.path.join('cnn_lib', 'test', 'consistency_outputs')
-PROFILES_FN = os.path.join('cnn_lib', 'test', 'kernel_profiles.json')
-
-
-def fail(message):
-    """Abort with a message.
-
-    :param message: text to print on standard error
-    """
-    print(f'error: {message}', file=sys.stderr)
-    raise SystemExit(1)
+TEST_DIR = Path(__file__).resolve().parent
+OUT = TEST_DIR / 'consistency_outputs'
+PROFILES_FN = TEST_DIR / 'kernel_profiles.json'
 
 
-def download(run):
+def download(run, directory):
     """Download a run's artifacts with the gh CLI.
 
     :param run: run id, or None for the newest run of the workflow
-    :return: directory the artifacts were downloaded into
+    :param directory: directory to download the artifacts into
     """
     if run is None:
-        run = subprocess.run(
-            [
-                'gh',
-                'run',
-                'list',
-                '--workflow',
-                'record_kernel_profiles.yml',
-                '--limit',
-                '1',
-                '--json',
-                'databaseId',
-                '--jq',
-                '.[0].databaseId',
-            ],
-            capture_output=True,
+        run = subprocess.check_output(
+            'gh run list --workflow record_kernel_profiles.yml --limit 1 '
+            '--json databaseId --jq .[0].databaseId'.split(),
+            cwd=TEST_DIR,
             text=True,
-            check=True,
-        ).stdout.strip()
+        ).strip()
 
-    directory = tempfile.mkdtemp(prefix='kernel-profiles-')
-    print(f'Downloading artifacts of run {run} into {directory}')
-    subprocess.run(['gh', 'run', 'download', run, '-D', directory], check=True)
-
-    return directory
-
-
-def collect(artifacts):
-    """Find every recorded profile directory in the downloaded artifacts.
-
-    :param artifacts: directory holding the downloaded artifacts
-    :return: dictionary mapping a fingerprint to the list of directories
-        recorded for it
-    """
-    found = {}
-
-    for root, dirs, _ in os.walk(artifacts):
-        if os.path.basename(root) != 'consistency_outputs':
-            continue
-        for fingerprint in dirs:
-            found.setdefault(fingerprint, []).append(
-                os.path.join(root, fingerprint)
-            )
-
-    return found
-
-
-def outputs(directory):
-    """List the reference outputs stored in a directory.
-
-    :param directory: directory to list
-    :return: sorted list of the reference output file names
-    """
-    return sorted(
-        name for name in os.listdir(directory) if name.endswith('.txt')
+    print(f'Downloading artifacts of run {run}')
+    subprocess.run(
+        ['gh', 'run', 'download', run, '-D', directory],
+        cwd=TEST_DIR,
+        check=True,
     )
 
 
-def check_agreement(fingerprint, directories):
-    """Check that jobs sharing a fingerprint recorded identical outputs.
+def read(directory):
+    """Read the reference outputs stored in a directory.
 
-    Different jobs record different test functions, so only the files present
-    in both of a pair are compared.
-
-    :param fingerprint: the kernel fingerprint
-    :param directories: directories recorded for that fingerprint
-    :return: whether every overlapping file agrees
+    :param directory: directory to read
+    :return: dictionary mapping a file name to its content
     """
-    agreed = True
-    compared = 0
-
-    for i, left in enumerate(directories):
-        for right in directories[i + 1 :]:
-            shared = set(os.listdir(left)) & set(os.listdir(right))
-            for name in sorted(shared):
-                compared += 1
-                if not filecmp.cmp(
-                    os.path.join(left, name),
-                    os.path.join(right, name),
-                    shallow=False,
-                ):
-                    print(f'  {fingerprint}: {name} DIFFERS between jobs')
-                    agreed = False
-
-    if agreed:
-        print(
-            f'  {fingerprint}: {compared} overlapping file(s) agree'
-            if compared
-            else f'  {fingerprint}: no overlap between jobs, nothing to check'
-        )
-
-    return agreed
+    return {path.name: path.read_bytes() for path in directory.glob('*.txt')}
 
 
-def identical(left, right):
-    """Compare two recorded profiles byte by byte.
+def collect(artifacts):
+    """Pool the reference outputs in the artifacts by fingerprint.
 
-    :param left: directory holding the first profile
-    :param right: directory holding the second profile
-    :return: whether they hold the same outputs with the same content
+    Jobs sharing a fingerprint record different test functions, but an
+    output recorded by more than one of them has to be the same in all.
+
+    :param artifacts: directory holding the downloaded artifacts
+    :return: dictionary mapping a fingerprint to its outputs, as read()
     """
-    names = outputs(left)
-    if names != outputs(right):
-        return False
-
-    # shallow=False: the copies have just been written, so their timestamps
-    # differ and the default stat comparison would call every one of them
-    # different
-    _, mismatch, errors = filecmp.cmpfiles(left, right, names, shallow=False)
-
-    return not mismatch and not errors
+    found = {}
+    for path in Path(artifacts).glob('**/consistency_outputs/*/*.txt'):
+        fingerprint, content = path.parent.name, path.read_bytes()
+        files = found.setdefault(fingerprint, {})
+        if files.setdefault(path.name, content) != content:
+            sys.exit(
+                f'error: {path.name} differs between jobs on {fingerprint} - '
+                'the fingerprint is not capturing everything that varies'
+            )
+    return found
 
 
 def main():
@@ -173,188 +95,66 @@ def main():
     )
     args = parser.parse_args()
 
-    if not os.path.isdir(os.path.dirname(OUT)):
-        fail('run this from the root of the cnn-lib checkout')
+    with tempfile.TemporaryDirectory(prefix='kernel-profiles-') as tmp:
+        if not args.directory:
+            download(args.run, tmp)
+        found = collect(args.directory or tmp)
 
-    # a fingerprint sharing another's directory has none of its own, and its
-    # runners stop at the probe instead of recording, so it appears neither
-    # on disk nor in the artifacts - read it now or lose it
-    recorded = {}
-    if os.path.isfile(PROFILES_FN):
-        with open(PROFILES_FN) as profiles_file:
-            recorded = json.load(profiles_file)['profiles']
+    # a fingerprint sharing another's directory never records - its runners
+    # stop at the probe - so it is known only from here
+    profiles_json = json.loads(PROFILES_FN.read_text())
+    recorded = profiles_json['profiles']
 
-    # it is gone whenever no profile is recorded yet - git does not keep an
-    # empty directory
-    os.makedirs(OUT, exist_ok=True)
+    # every output of this run plus every output already in the repository:
+    # a test function that ran on no new CPU in this run is still required
+    expected = {name for files in found.values() for name in files}
+    expected.update(path.name for path in OUT.glob('*/*.txt'))
 
-    artifacts = args.directory or download(args.run)
-    found = collect(artifacts)
-
-    if not found:
-        fail(
-            f'no consistency_outputs/<fingerprint>/ directories in {artifacts}'
-        )
-
-    print('\nFingerprints in this run (jobs each):')
-    for fingerprint, directories in sorted(found.items()):
-        print(f'  {fingerprint}: {len(directories)}')
-
-    print('\nChecking that jobs sharing a fingerprint agree:')
-    if not all(
-        check_agreement(fingerprint, directories)
-        for fingerprint, directories in sorted(found.items())
-    ):
-        fail('the fingerprint is not capturing everything that varies')
-
-    # what a profile has to hold: every output this run produced, plus every
-    # output the profiles already in the repository hold. Without the second
-    # half, merging a run that re-recorded a single test function would find
-    # nothing missing and register two-file profiles as complete.
-    expected = {
-        name
-        for directories in found.values()
-        for directory in directories
-        for name in outputs(directory)
-    }
-    for name in set(recorded.values()):
-        directory = os.path.join(OUT, name)
-        if os.path.isdir(directory):
-            expected.update(outputs(directory))
-    print(
-        f'\nChecking completeness against the {len(expected)} distinct '
-        'reference outputs seen:'
-    )
-
+    print(f'Checking completeness against {len(expected)} reference outputs:')
     complete = {}
-    for fingerprint, directories in sorted(found.items()):
-        names = {
-            name for directory in directories for name in outputs(directory)
-        }
-        missing = sorted(expected - names)
-        if not missing:
-            print(f'  {fingerprint}: complete')
-            complete[fingerprint] = directories
-        elif args.partial:
-            if fingerprint not in recorded:
-                # nothing to update, and a run that re-recorded one test
-                # function cannot establish a whole profile
-                print(
-                    f'  {fingerprint}: not recorded yet, skipped - run the '
-                    'full recording workflow for it'
-                )
-                continue
-            # a rerecord run carries only the outputs it was asked to redo;
-            # the rest of the profile is already in the repository
-            print(
-                f'  {fingerprint}: partial, updating {len(names)} file(s) in '
-                f'{recorded[fingerprint]}/'
-            )
-            complete[fingerprint] = directories
-        else:
-            print(
-                f'  {fingerprint}: INCOMPLETE, missing {len(missing)} '
-                f'({", ".join(missing[:3])}{" ..." if len(missing) > 3 else ""})'
-            )
-
-    if not complete:
-        fail('no complete profile to merge - sample more runners')
-
-    # copy the recorded outputs in before removing the old flat ones, so the
-    # directory never becomes empty (git would drop it)
-    print(f'\nCopying {len(complete)} profile(s) into {OUT}/')
-    for fingerprint, directories in complete.items():
-        # a fingerprint sharing another's directory writes into that one
-        target = os.path.join(OUT, recorded.get(fingerprint, fingerprint))
-        os.makedirs(target, exist_ok=True)
-        for directory in directories:
-            for name in outputs(directory):
-                shutil.copyfile(
-                    os.path.join(directory, name),
-                    os.path.join(target, name),
-                )
-
-    stale = [
-        os.path.join(OUT, name)
-        for name in os.listdir(OUT)
-        if name.endswith('.txt')
-    ]
-    if stale:
-        print(f'Removing {len(stale)} stale flat reference output(s)')
-        subprocess.run(['git', 'rm', '-q'] + stale, check=True)
-
-    fingerprints = sorted(
-        name
-        for name in os.listdir(OUT)
-        if os.path.isdir(os.path.join(OUT, name))
-    )
-
-    # a fingerprint whose outputs are byte-identical to an earlier one is
-    # pointed at that one's directory instead of keeping a second copy
-    profiles = {}
-    for i, fingerprint in enumerate(fingerprints):
-        if fingerprint in profiles:
-            continue
-        profiles[fingerprint] = fingerprint
-        for other in fingerprints[i + 1 :]:
-            if other not in profiles and identical(
-                os.path.join(OUT, fingerprint), os.path.join(OUT, other)
-            ):
-                profiles[other] = fingerprint
-
-    # profiles that were already recorded keep their directory, following it
-    # if this run turned that directory into a shared one
-    for fingerprint, target in sorted(recorded.items()):
-        if fingerprint in profiles:
-            continue
-        if target in profiles:
-            profiles[fingerprint] = profiles[target]
-        else:
-            print(
-                f'\nwarning: dropping {fingerprint}, the directory it used '
-                f'({target}) is gone'
-            )
-
-    sharing = {fp: to for fp, to in profiles.items() if fp != to}
-    if sharing:
-        print(f'\n{len(sharing)} profile(s) produce output already recorded:')
-        for fingerprint, target in sorted(sharing.items()):
-            print(f'  {fingerprint} -> {target}')
-            path = os.path.join(OUT, fingerprint)
-            subprocess.run(
-                ['git', 'rm', '-rq', '--ignore-unmatch', path], check=True
-            )
-            shutil.rmtree(path, ignore_errors=True)
-
-    with open(PROFILES_FN, 'w') as profiles_file:
-        json.dump(
-            {
-                'comment': 'Fingerprints of the float32 kernel paths the '
-                'reference outputs were recorded on, mapped to their '
-                'directory under consistency_outputs. See conftest.py.',
-                'profiles': profiles,
-            },
-            profiles_file,
-            indent=2,
-            sort_keys=True,
-        )
-        profiles_file.write('\n')
-
-    print(
-        f'\n{PROFILES_FN} now lists {len(profiles)} profile(s) in '
-        f'{len(set(profiles.values()))} directory/ies:'
-    )
-    for fingerprint, target in sorted(profiles.items()):
+    for fingerprint, files in sorted(found.items()):
+        # a rerecord run carries only the outputs it was asked to redo; the
+        # rest of an already recorded profile is in the repository
+        if expected <= files.keys() or args.partial and fingerprint in recorded:
+            complete[fingerprint] = files
         print(
-            f'  {fingerprint}'
-            if fingerprint == target
-            else f'  {fingerprint} (shares {target})'
+            f'  {fingerprint}: {len(files)}/{len(expected)}'
+            + ('' if fingerprint in complete else ' - INCOMPLETE, skipped')
         )
+    if not complete:
+        sys.exit('error: no complete profile to merge - sample more runners')
 
-    if not args.directory:
-        shutil.rmtree(artifacts, ignore_errors=True)
+    # a new fingerprint gets a directory of its own, a recorded one keeps its
+    profiles = {fingerprint: fingerprint for fingerprint in complete} | recorded
+    for fingerprint, files in complete.items():
+        target = OUT / profiles[fingerprint]
+        target.mkdir(parents=True, exist_ok=True)
+        for name, content in files.items():
+            (target / name).write_bytes(content)
 
-    print('\nDone. Review with: git status && git diff --stat')
+    # a directory byte-identical to an earlier one is removed and its
+    # fingerprints pointed at that one
+    first, canonical = {}, {}
+    for directory in sorted(set(profiles.values())):
+        if not (OUT / directory).is_dir():
+            print(f'warning: {directory} is gone, dropping its profiles')
+            continue
+        content = frozenset(read(OUT / directory).items())
+        canonical[directory] = first.setdefault(content, directory)
+        if canonical[directory] != directory:
+            print(f'{directory} duplicates {canonical[directory]}, removed')
+            shutil.rmtree(OUT / directory)
+
+    profiles_json['profiles'] = {
+        fingerprint: canonical[directory]
+        for fingerprint, directory in profiles.items()
+        if directory in canonical
+    }
+    PROFILES_FN.write_text(
+        json.dumps(profiles_json, indent=2, sort_keys=True) + '\n'
+    )
+
+    print('Done. Review with: git status && git diff --stat')
 
 
 if __name__ == '__main__':

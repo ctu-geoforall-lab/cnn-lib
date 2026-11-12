@@ -1,21 +1,9 @@
 #!/usr/bin/env python3
 """Merge the artifacts of a record_kernel_profiles run into the repository.
 
-    ./merge_kernel_profiles.py                 # newest run of the workflow
-    ./merge_kernel_profiles.py <run-id>        # a specific run
-    ./merge_kernel_profiles.py -d <directory>  # artifacts already downloaded
-
-Nothing is committed - inspect `git status` afterwards.
-
-Each sampling job records one test function, so a profile is assembled from
-several jobs that happened to land on CPUs with the same fingerprint. A
-profile is merged only once every reference output is present; an incomplete
-one would make the consistency test fail on a missing file instead of
-skipping.
-
-The fingerprint tells CPUs apart, and more CPUs differ than compute float32
-differently, so profiles with byte-identical outputs are pointed at one
-directory instead of each storing a copy.
+A profile is pooled from the jobs that share its fingerprint and merged only
+once complete; profiles with identical outputs share one directory. Nothing
+is committed.
 """
 
 import argparse
@@ -85,7 +73,7 @@ def collect(artifacts):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('run', nargs='?', help='workflow run id')
+    parser.add_argument('run', nargs='?', help='workflow run id, the newest by default')
     parser.add_argument('-d', dest='directory', help='downloaded artifacts')
     parser.add_argument(
         '--partial',

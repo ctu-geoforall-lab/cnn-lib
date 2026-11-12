@@ -221,7 +221,6 @@ if __name__ == '__main__':
     tf.keras.utils.set_random_seed(1)
     tf.config.experimental.enable_op_determinism()
     tf.config.threading.set_intra_op_parallelism_threads(1)
-    tf.config.threading.set_inter_op_parallelism_threads(1)
 
     _fingerprint = kernel_fingerprint()
     _known = 'known' if _fingerprint in _read_profiles() else 'unknown'

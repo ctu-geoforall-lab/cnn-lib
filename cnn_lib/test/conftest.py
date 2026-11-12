@@ -215,6 +215,7 @@ def known_kernel_profile():
 
 
 if __name__ == '__main__':
+    tf.keras.utils.set_random_seed(1)
     _fingerprint = kernel_fingerprint()
     _known = 'known' if _fingerprint in _read_profiles() else 'unknown'
     print(f'{_fingerprint} {_known}')

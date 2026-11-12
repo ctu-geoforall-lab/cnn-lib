@@ -73,7 +73,9 @@ def collect(artifacts):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('run', nargs='?', help='workflow run id, the newest by default')
+    parser.add_argument(
+        'run', nargs='?', help='workflow run id, the newest by default'
+    )
     parser.add_argument('-d', dest='directory', help='downloaded artifacts')
     parser.add_argument(
         '--partial',

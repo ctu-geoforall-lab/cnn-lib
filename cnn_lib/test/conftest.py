@@ -167,6 +167,7 @@ def _write_profiles(profiles):
 def known_kernel_profile():
     """Point the tests at the reference outputs valid for this machine."""
     tf.keras.utils.set_random_seed(1)
+    tf.config.experimental.enable_op_determinism()
 
     fingerprint = kernel_fingerprint()
     profiles = _read_profiles()

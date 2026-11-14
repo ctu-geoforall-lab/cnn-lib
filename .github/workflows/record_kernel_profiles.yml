@@ -1,0 +1,109 @@
+name: record_kernel_profiles
+
+# samples the runner pool
+# TODO: simplify, make it understandable
+
+on:
+  push:
+    branches:
+      - 'record-profiles/**'
+  workflow_dispatch:
+
+jobs:
+  record:
+    name: "${{ matrix.test }} / sample ${{ matrix.sample }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    permissions:
+      contents: read
+      packages: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # add or remove entries to sample more or fewer
+        sample: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+        test:
+          - test_001a_plain_architectures
+          - test_001b_deeplab_backbones
+          - test_001c_fcn_backbone
+          - test_002_loss
+          - test_003_augmentation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Report the hardware this sample landed on
+        run: |
+          lscpu | grep -E 'Model name|Vendor ID|CPU family|Model:|Stepping'
+          echo "L1d: $(cat /sys/devices/system/cpu/cpu0/cache/index0/size)"
+          echo "L2:  $(cat /sys/devices/system/cpu/cpu0/cache/index2/size)"
+          free -g
+
+      - name: Pull the pinned image
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          IMAGE=ghcr.io/ctu-geoforall-lab/cnn-lib-cpu@sha256:4a62ada6f011b471e50dc8256f7243accae374b9cc0396eab7a1489c01509baa
+          docker pull "$IMAGE"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          # in the log, so a future drift is one diff away
+          docker run --rm "$IMAGE" pip freeze
+
+      # CPU class already recorded can stop here
+      - name: Is this machine's kernel profile already recorded?
+        id: probe
+        run: |
+          set -o pipefail
+          docker run --rm -v ${GITHUB_WORKSPACE}:/src:ro \
+            --cpus=4 -m 20g "$IMAGE" \
+            bash -c "cd src; python3 cnn_lib/test/conftest.py" | tee /tmp/probe.txt
+          read -r FP STATE <<< "$(tail -1 /tmp/probe.txt)"
+          case "$STATE" in
+            known|unknown) ;;
+            *) echo "probe returned '$STATE', expected known|unknown" >&2
+               cat /tmp/probe.txt >&2
+               exit 1 ;;
+          esac
+          echo "fingerprint=$FP" >> $GITHUB_OUTPUT
+          echo "state=$STATE" >> $GITHUB_OUTPUT
+          # recorded in the summary so the outcome is readable without logs
+          {
+            echo "| field | value |"
+            echo "| --- | --- |"
+            echo "| kernel profile | \`$FP\` |"
+            echo "| state | **$STATE** |"
+            echo "| CPU | $(lscpu | sed -n 's/^Model name: *//p') |"
+            echo "| L1d | $(cat /sys/devices/system/cpu/cpu0/cache/index0/size) |"
+            echo "| image | \`$IMAGE\` |"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Download test data
+        if: steps.probe.outputs.state == 'unknown'
+        run: |
+          pip install zenodo_get && \
+          zenodo_get 7040177 -o /tmp/ && \
+          7z x /tmp/venus_clouds_v1.0.7z -o/tmp/training_data && \
+          rm /tmp/training_data/training_set_clouds_multiclass/s*
+
+      - name: Record the profile and its reference outputs
+        if: steps.probe.outputs.state == 'unknown'
+        run: |
+          docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw \
+            -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
+            -e CNN_LIB_RECORD_PROFILE=1 \
+            --cpus=4 -m 20g "$IMAGE" \
+            bash -c "cd src; pip install .; \
+              pytest cnn_lib/test/consistency_test.py::TestCmd::${{ matrix.test }}"
+
+      - name: Upload the recorded profile
+        if: always() && steps.probe.outputs.state == 'unknown'
+        uses: actions/upload-artifact@v4
+        with:
+          name: "kernel-profile-${{ steps.probe.outputs.fingerprint }}-${{ matrix.test }}-${{ matrix.sample }}"
+          if-no-files-found: warn
+          path: |
+            cnn_lib/test/kernel_profiles.json
+            cnn_lib/test/consistency_outputs/${{ steps.probe.outputs.fingerprint }}/**

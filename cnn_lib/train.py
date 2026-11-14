@@ -67,7 +67,7 @@ def run(
         os.path.join(data_dir, 'label_colors.txt')
     )
 
-    # set TensorFlow seed
+    # set the seeds
     if seed is not None:
         if int(tf.__version__.split('.')[1]) < 4:
             tf.random.set_seed(seed)
@@ -117,9 +117,8 @@ def run(
             else:
                 model.set_layers_trainable(False, frozen_layer_groups)
             model.compile(
-                optimizer=model.optimizer,
-                loss=model.loss,
-                metrics=_metrics)
+                optimizer=model.optimizer, loss=model.loss, metrics=_metrics
+            )
 
     train_generator = AugmentGenerator(
         data_dir,

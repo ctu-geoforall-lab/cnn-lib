@@ -1,216 +1,123 @@
-"""Keep the byte-exact consistency comparison valid on changing CI hardware.
+"""Compare the consistency tests' outputs with those recorded on the same CPU.
 
-The comparison in consistency_test.py is only meaningful on a machine whose
-float32 kernels accumulate in the same order as the machine the reference
-outputs were recorded on, and that is not something a seed,
-``enable_op_determinism()`` or a thread limit can give across different CPUs:
-TF's CPU convolutions go through Eigen, whose GEMM blocking factor is derived
-at runtime from the L1 data cache size reported by CPUID (32 KiB up to Cascade
-Lake and on Zen, 48 KiB from Ice Lake on). A different split means a different
-summation order, which means a few ULP - and the printed value is the
-inference-mode val_loss of a BatchNorm net at batch_size=1, which turns 1 ULP
-into ~10%.
+The tests compare training outputs byte by byte, but float32 results depend on
+the CPU: TF derives its kernels' blocking, and so the summation order, from the
+CPU's cache sizes. Each CPU class therefore has its own reference outputs (a
+kernel profile), identified by a fingerprint of the CPU and of a few TF
+results. kernel_profiles.json maps fingerprints to directories in
+consistency_outputs.
 
-So each distinct kernel path gets its own set of reference outputs. A machine
-whose path has not been recorded fails - never skips - because an unrecorded
-kernel path is a gap in the reference outputs, and the fix is to record it
-rather than to let the build go green without having compared anything:
-
-    CNN_LIB_RECORD_PROFILE=1 pytest ...   record this machine's profile and
-                                          write its reference outputs
-
-Each profile gets consistency_outputs/<fingerprint>/ to itself, so recordings
-made by separate CI jobs merge by copying. Which profiles GitHub's runner pool
-can hand out is not published and changes over time, so they are sampled
-empirically - see .github/workflows/record_kernel_profiles.yml
-
-Rebuilding the image against a different TensorFlow or numpy changes the
-fingerprint as well. That is intended: the reference outputs change with it,
-so every profile has to be re-recorded anyway.
-
-Every CPU class the runner pool hands out therefore has to be recorded before
-the suite can be green. On fixed hardware - a self-hosted runner - there is
-only ever one profile and the question does not arise.
+On a CPU without a profile the tests fail; CNN_LIB_RECORD_PROFILE=1 records
+its outputs instead. `python3 conftest.py` prints the fingerprint and whether
+it is recorded. See .github/workflows/record_kernel_profiles.yml.
 """
 
-import os
-import json
-import shutil
 import filecmp
 import hashlib
+import json
+import os
+import shutil
+from pathlib import Path
 
 import numpy as np
 import pytest
 import tensorflow as tf
 
+TEST_DIR = Path(__file__).parent
+PROFILES_FN = TEST_DIR / 'kernel_profiles.json'
+RECORD = os.environ.get('CNN_LIB_RECORD_PROFILE') == '1'
 
-TEST_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUTS_DIR = os.path.join(TEST_DIR, 'consistency_outputs')
-PROFILES_FN = os.path.join(TEST_DIR, 'kernel_profiles.json')
-
-# Keras renders model.summary() through rich, which takes its width from
-# COLUMNS; without pinning it the stored outputs only match in an 80-column
-# environment
+# the stored outputs contain model.summary(), which wraps at COLUMNS
 os.environ['COLUMNS'] = '80'
 
+# the tests run under these settings, so the fingerprint is taken under them
+tf.config.experimental.enable_op_determinism()
+tf.config.threading.set_intra_op_parallelism_threads(1)
 
-def _enabled(name):
-    """Read a boolean switch from the environment.
 
-    :param name: name of the environment variable
-    :return: whether the switch is on
-    """
-    return os.environ.get(name, '') not in ('', '0', 'false', 'False')
+def _read(path):
+    """Read a file, or '?' if it is not there."""
+    try:
+        return Path(path).read_text().strip()
+    except OSError:
+        return '?'
 
 
 def _cpu_identity():
-    """Describe the CPU closely enough to tell two models apart.
+    """Describe the CPU model and its caches.
 
-    The numeric probe below is necessary but not sufficient: two different
-    CPU generations with the same L1d size pick the same Eigen blocking for
-    the probe's shapes and so hash identically, while diverging on the
-    shapes the real models use. An EPYC 9V74 (family 25) and an EPYC 9V45
-    (family 26) collided exactly that way. So the identity of the CPU goes
-    into the fingerprint as well.
-
-    :return: string describing the CPU and its caches
+    Needed besides the numbers: two CPUs can agree on the fingerprint's
+    matmul and convolution, but not on the models the tests train.
     """
+    cpuinfo = {}
+    for line in _read('/proc/cpuinfo').splitlines():
+        key, _, value = line.partition(':')
+        cpuinfo.setdefault(key.strip(), value.strip())
+
     fields = ('vendor_id', 'cpu family', 'model', 'model name', 'stepping')
-    values = {}
-    try:
-        with open('/proc/cpuinfo') as cpuinfo:
-            for line in cpuinfo:
-                key, _, value = line.partition(':')
-                key = key.strip()
-                if key in fields and key not in values:
-                    values[key] = value.strip()
-    except OSError:
-        pass
-
-    caches = []
-    for index in range(4):
-        path = f'/sys/devices/system/cpu/cpu0/cache/index{index}/size'
-        try:
-            with open(path) as cache:
-                caches.append(cache.read().strip())
-        except OSError:
-            caches.append('?')
-
-    return '|'.join([values.get(f, '?') for f in fields] + caches)
+    caches = [
+        _read(f'/sys/devices/system/cpu/cpu0/cache/index{index}/size')
+        for index in range(4)
+    ]
+    return '|'.join([cpuinfo.get(field, '?') for field in fields] + caches)
 
 
 def kernel_fingerprint():
-    """Fingerprint the float32 kernel path of the current machine.
+    """Hash the CPU identity with the bytes of a matmul and a convolution.
 
-    The identity of the CPU, plus a matmul big enough for Eigen to cut into
-    blocks and a convolution, hashed over their raw float32 bytes. The
-    numeric part catches a changed TensorFlow or numpy; the CPU identity
-    catches two models that happen to agree on those two operations but not
-    on the ones the real architectures use.
-
-    :return: short hexadecimal fingerprint of the kernel path
+    :return: 16 hexadecimal digits identifying the kernel profile
     """
     rng = np.random.default_rng(0)
-    gemm = tf.linalg.matmul(
-        tf.constant(rng.standard_normal((256, 2048), dtype=np.float32)),
-        tf.constant(rng.standard_normal((2048, 256), dtype=np.float32)),
-    )
+
+    def random(*shape):
+        return tf.constant(rng.standard_normal(shape, dtype=np.float32))
+
+    gemm = tf.linalg.matmul(random(256, 2048), random(2048, 256))
     conv = tf.nn.conv2d(
-        tf.constant(rng.standard_normal((1, 64, 64, 32), dtype=np.float32)),
-        tf.constant(rng.standard_normal((3, 3, 32, 32), dtype=np.float32)),
-        strides=1,
-        padding='SAME',
+        random(1, 64, 64, 32), random(3, 3, 32, 32), strides=1, padding='SAME'
     )
 
-    digest = hashlib.sha256()
-    digest.update(_cpu_identity().encode())
-    for tensor in (gemm, conv):
-        digest.update(tensor.numpy().tobytes())
-
+    digest = hashlib.sha256(_cpu_identity().encode())
+    digest.update(gemm.numpy().tobytes())
+    digest.update(conv.numpy().tobytes())
     return digest.hexdigest()[:16]
 
 
-def _read_profiles():
-    """Read the recorded kernel profiles.
-
-    :return: dictionary mapping a fingerprint to a directory name relative
-        to consistency_outputs
-    """
-    if not os.path.isfile(PROFILES_FN):
-        return {}
-
-    with open(PROFILES_FN) as profiles_file:
-        return json.load(profiles_file)['profiles']
-
-
-def _write_profiles(profiles):
-    """Store the recorded kernel profiles.
-
-    :param profiles: dictionary mapping a fingerprint to a directory name
-    """
-    with open(PROFILES_FN, 'w') as profiles_file:
-        json.dump(
-            {
-                'comment': 'Fingerprints of the float32 kernel paths the '
-                'reference outputs were recorded on, mapped to their '
-                'directory under consistency_outputs. See conftest.py.',
-                'profiles': profiles,
-            },
-            profiles_file,
-            indent=2,
-            sort_keys=True,
-        )
-        profiles_file.write('\n')
-
-
 @pytest.fixture(scope='session', autouse=True)
-def known_kernel_profile():
-    """Point the tests at the reference outputs valid for this machine."""
-    tf.keras.utils.set_random_seed(1)
-    tf.config.experimental.enable_op_determinism()
-    tf.config.threading.set_intra_op_parallelism_threads(1)
-
+def kernel_profile():
+    """Point the tests at the reference outputs recorded for this CPU."""
     fingerprint = kernel_fingerprint()
-    profiles = _read_profiles()
+    profiles_json = json.loads(PROFILES_FN.read_text())
+    profiles = profiles_json['profiles']
 
     if fingerprint not in profiles:
-        if not _enabled('CNN_LIB_RECORD_PROFILE'):
+        if not RECORD:
             pytest.fail(
-                f'No reference outputs for kernel profile {fingerprint}. '
-                'This runner computes float32 differently from every recorded '
-                f'one ({", ".join(sorted(profiles)) or "none recorded"}), so '
-                'there is nothing valid to compare against. Record it by '
-                'running the record_kernel_profiles workflow until a job '
-                f'lands on {fingerprint}, then merge the artifact with '
-                'cnn_lib/test/merge_kernel_profiles.py.',
+                f'Kernel profile {fingerprint} is not recorded, so there is '
+                'nothing to compare with. Record it with the '
+                'record_kernel_profiles workflow and merge_kernel_profiles.py.',
                 pytrace=False,
             )
-
-        # always a directory of its own, so that recordings made by separate
-        # CI jobs merge by copying, without any of them claiming a shared
-        # directory. Two profiles that turn out to produce identical outputs
-        # can afterwards be pointed at the same directory by hand.
         profiles[fingerprint] = fingerprint
-        _write_profiles(profiles)
+        PROFILES_FN.write_text(
+            json.dumps(profiles_json, indent=2, sort_keys=True) + '\n'
+        )
 
-    outputs_dir = os.path.join(OUTPUTS_DIR, profiles[fingerprint])
-    os.environ['CNN_LIB_OUTPUTS_DIR'] = outputs_dir
+    outputs_dir = TEST_DIR / 'consistency_outputs' / profiles[fingerprint]
+    os.environ['CNN_LIB_OUTPUTS_DIR'] = str(outputs_dir)
 
-    if _enabled('CNN_LIB_RECORD_PROFILE'):
-        os.makedirs(outputs_dir, exist_ok=True)
-        print(f'\nRecording kernel profile {fingerprint} into {outputs_dir}')
+    if RECORD:
+        outputs_dir.mkdir(parents=True, exist_ok=True)
 
-        # there is nothing to compare against while recording, so store the
-        # produced output instead of comparing it
-        def record(produced, expected, *args, **kwargs):
-            shutil.copyfile(produced, expected)
+        # store each output instead of comparing it
+        def record(produced, stored, *args, **kwargs):
+            shutil.copyfile(produced, stored)
             return True
 
         filecmp.cmp = record
 
 
 if __name__ == '__main__':
-    tf.keras.utils.set_random_seed(1)
-    _fingerprint = kernel_fingerprint()
-    _known = 'known' if _fingerprint in _read_profiles() else 'unknown'
-    print(f'{_fingerprint} {_known}')
+    fingerprint = kernel_fingerprint()
+    profiles = json.loads(PROFILES_FN.read_text())['profiles']
+    print(fingerprint, 'known' if fingerprint in profiles else 'unknown')

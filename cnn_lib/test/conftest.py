@@ -166,20 +166,13 @@ def _write_profiles(profiles):
 @pytest.fixture(scope='session', autouse=True)
 def known_kernel_profile():
     """Point the tests at the reference outputs valid for this machine."""
-    # mirror train.run(), so the fingerprint describes the configuration the
-    # tests themselves run under
     tf.keras.utils.set_random_seed(1)
-    tf.config.experimental.enable_op_determinism()
-    tf.config.threading.set_intra_op_parallelism_threads(1)
-    tf.config.threading.set_inter_op_parallelism_threads(1)
 
     fingerprint = kernel_fingerprint()
     profiles = _read_profiles()
 
     if fingerprint not in profiles:
         if not _enabled('CNN_LIB_RECORD_PROFILE'):
-            # never skipped: an unrecorded machine is a gap in the reference
-            # outputs, and a silent pass would hide it
             pytest.fail(
                 f'No reference outputs for kernel profile {fingerprint}. '
                 'This runner computes float32 differently from every recorded '

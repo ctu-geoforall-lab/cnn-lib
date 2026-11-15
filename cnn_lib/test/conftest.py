@@ -7,7 +7,7 @@ kernel profile), identified by a fingerprint of the CPU and of a few TF
 results. kernel_profiles.json maps fingerprints to directories in
 consistency_outputs.
 
-On a CPU without a profile the tests fail; CNN_LIB_RECORD_PROFILE=1 records
+On a CPU without a profile the tests fail; `pytest --record-profile` records
 its outputs instead. `python3 conftest.py` prints the fingerprint and whether
 it is recorded. See .github/workflows/record_kernel_profiles.yml.
 """
@@ -101,10 +101,18 @@ def find_profile(test_dir, record):
     return fingerprint, test_dir / 'consistency_outputs' / profiles[fingerprint]
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        '--record-profile',
+        action='store_true',
+        help="record this CPU's reference outputs instead of comparing them",
+    )
+
+
 @pytest.fixture(scope='session', autouse=True)
-def kernel_profile():
+def kernel_profile(pytestconfig):
     """Point the tests at the reference outputs recorded for this CPU."""
-    record = os.environ.get('CNN_LIB_RECORD_PROFILE') == '1'
+    record = pytestconfig.getoption('record_profile')
     fingerprint, outputs_dir = find_profile(Path(__file__).parent, record)
 
     if outputs_dir is None:

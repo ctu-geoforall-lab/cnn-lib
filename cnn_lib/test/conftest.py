@@ -23,17 +23,6 @@ import numpy as np
 import pytest
 import tensorflow as tf
 
-TEST_DIR = Path(__file__).parent
-PROFILES_FN = TEST_DIR / 'kernel_profiles.json'
-RECORD = os.environ.get('CNN_LIB_RECORD_PROFILE') == '1'
-
-# the stored outputs contain model.summary(), which wraps at COLUMNS
-os.environ['COLUMNS'] = '80'
-
-# the tests run under these settings, so the fingerprint is taken under them
-tf.config.experimental.enable_op_determinism()
-tf.config.threading.set_intra_op_parallelism_threads(1)
-
 
 def _read(path):
     """Read a file, or '?' if it is not there."""
@@ -83,41 +72,72 @@ def kernel_fingerprint():
     return digest.hexdigest()[:16]
 
 
-@pytest.fixture(scope='session', autouse=True)
-def kernel_profile():
-    """Point the tests at the reference outputs recorded for this CPU."""
+def find_profile(test_dir, record):
+    """Find the reference outputs recorded for this CPU.
+
+    :param test_dir: directory holding kernel_profiles.json and
+        consistency_outputs
+    :param record: whether to register this CPU if it is not recorded yet
+    :return: this CPU's fingerprint, and the directory holding its reference
+        outputs or None if it is not recorded
+    """
+    # the tests run under these settings, so the fingerprint is taken under them
+    tf.config.experimental.enable_op_determinism()
+    tf.config.threading.set_intra_op_parallelism_threads(1)
     fingerprint = kernel_fingerprint()
-    profiles_json = json.loads(PROFILES_FN.read_text())
+
+    profiles_fn = test_dir / 'kernel_profiles.json'
+    profiles_json = json.loads(profiles_fn.read_text())
     profiles = profiles_json['profiles']
 
     if fingerprint not in profiles:
-        if not RECORD:
-            pytest.fail(
-                f'Kernel profile {fingerprint} is not recorded, so there is '
-                'nothing to compare with. Record it with the '
-                'record_kernel_profiles workflow and merge_kernel_profiles.py.',
-                pytrace=False,
-            )
+        if not record:
+            return fingerprint, None
         profiles[fingerprint] = fingerprint
-        PROFILES_FN.write_text(
+        profiles_fn.write_text(
             json.dumps(profiles_json, indent=2, sort_keys=True) + '\n'
         )
 
-    outputs_dir = TEST_DIR / 'consistency_outputs' / profiles[fingerprint]
+    return fingerprint, test_dir / 'consistency_outputs' / profiles[fingerprint]
+
+
+@pytest.fixture(scope='session', autouse=True)
+def kernel_profile():
+    """Point the tests at the reference outputs recorded for this CPU."""
+    record = os.environ.get('CNN_LIB_RECORD_PROFILE') == '1'
+    fingerprint, outputs_dir = find_profile(Path(__file__).parent, record)
+
+    if outputs_dir is None:
+        pytest.fail(
+            f'Kernel profile {fingerprint} is not recorded, so there is '
+            'nothing to compare with. Record it with the '
+            'record_kernel_profiles workflow and merge_kernel_profiles.py.',
+            pytrace=False,
+        )
+
+    # the stored outputs contain model.summary(), which wraps at COLUMNS
+    os.environ['COLUMNS'] = '80'
     os.environ['CNN_LIB_OUTPUTS_DIR'] = str(outputs_dir)
 
-    if RECORD:
+    if record:
         outputs_dir.mkdir(parents=True, exist_ok=True)
 
         # store each output instead of comparing it
-        def record(produced, stored, *args, **kwargs):
+        def store(produced, stored, *args, **kwargs):
             shutil.copyfile(produced, stored)
             return True
 
-        filecmp.cmp = record
+        filecmp.cmp = store
+
+
+def main():
+    """Print this CPU's fingerprint and whether it is recorded.
+
+    Lets record_kernel_profiles.yml skip the CPUs already recorded.
+    """
+    fingerprint, outputs_dir = find_profile(Path(__file__).parent, False)
+    print(fingerprint, 'unknown' if outputs_dir is None else 'known')
 
 
 if __name__ == '__main__':
-    fingerprint = kernel_fingerprint()
-    profiles = json.loads(PROFILES_FN.read_text())['profiles']
-    print(fingerprint, 'known' if fingerprint in profiles else 'unknown')
+    main()

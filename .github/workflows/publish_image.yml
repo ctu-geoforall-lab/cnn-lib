@@ -3,6 +3,12 @@ name: publish_image
 # Builds docker/docker-cpu once and pushes it to the repository's container
 # registry, so every workflow afterwards runs the same bytes.
 
+on:
+  push:
+    branches:
+      - 'publish-image/**'
+  workflow_dispatch:
+
 jobs:
   publish:
     name: build and publish the image

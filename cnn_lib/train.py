@@ -52,6 +52,7 @@ def run(
     frozen_layer_groups=None,
     skip_mismatch=True,
     verbose=1,
+    summary_line_length=None,
 ):
     if verbose > 0:
         utils.print_device_info()
@@ -87,6 +88,7 @@ def run(
         dropout_rate_hidden=dropout_rate_hidden,
         backbone=backbone,
         name=name,
+        summary_line_length=summary_line_length,
     )
 
     # val generator used for both the training and the detection

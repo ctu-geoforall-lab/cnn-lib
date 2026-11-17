@@ -4,7 +4,6 @@ See kernel_profiles.py for why each CPU class has its own reference outputs.
 """
 
 import filecmp
-import os
 import shutil
 from pathlib import Path
 
@@ -38,11 +37,12 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture(scope='session', autouse=True)
-def kernel_profile(pytestconfig):
-    """Point the tests at the reference outputs recorded for this CPU.
+@pytest.fixture(scope='session')
+def reference_dir(pytestconfig):
+    """Find the directory with the reference outputs recorded for this CPU.
 
     :param pytestconfig: pytest's configuration, holding --record-profile
+    :return: directory with this CPU's reference outputs
     """
     record = pytestconfig.getoption('record_profile')
     fingerprint, outputs_dir = find_profile(Path(__file__).parent, record)
@@ -55,10 +55,8 @@ def kernel_profile(pytestconfig):
             pytrace=False,
         )
 
-    # the stored outputs contain model.summary(), which wraps at COLUMNS
-    os.environ['COLUMNS'] = '80'
-    os.environ['CNN_LIB_OUTPUTS_DIR'] = str(outputs_dir)
-
     if record:
         outputs_dir.mkdir(parents=True, exist_ok=True)
         filecmp.cmp = _store
+
+    return outputs_dir

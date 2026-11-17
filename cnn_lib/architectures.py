@@ -1548,6 +1548,7 @@ def create_model(
     dropout_rate_hidden=None,
     backbone=None,
     name='model',
+    summary_line_length=None,
     **kwargs,
 ):
     """Create intended model.
@@ -1578,6 +1579,8 @@ def create_model(
         units of the hidden layers to drop
     :param backbone: backbone architecture
     :param name: The name of the model
+    :param summary_line_length: width of the model summary printed when
+        verbose; None lets Keras derive it from the terminal width
     :return: compiled model
     """
     model_classes = {
@@ -1637,6 +1640,6 @@ def create_model(
     model.build(input_shape=(None, tensor_shape[0], tensor_shape[1], nr_bands))
 
     if verbose > 0:
-        model.summary()
+        model.summary(line_length=summary_line_length)
 
     return model

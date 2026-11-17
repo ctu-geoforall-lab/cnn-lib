@@ -25,7 +25,11 @@ import tensorflow as tf
 
 
 def _read(path):
-    """Read a file, or '?' if it is not there."""
+    """Read a file.
+
+    :param path: path to the file
+    :return: the file's stripped content, or '?' if it cannot be read
+    """
     try:
         return Path(path).read_text().strip()
     except OSError:
@@ -37,6 +41,9 @@ def _cpu_identity():
 
     Needed besides the numbers: two CPUs can agree on the fingerprint's
     matmul and convolution, but not on the models the tests train.
+
+    :return: the CPU's vendor, family, model, name and stepping and the sizes
+        of its caches, joined by '|'
     """
     cpuinfo = {}
     for line in _read('/proc/cpuinfo').splitlines():
@@ -57,14 +64,14 @@ def kernel_fingerprint():
     :return: 16 hexadecimal digits identifying the kernel profile
     """
     rng = np.random.default_rng(0)
-
-    def random(*shape):
-        return tf.constant(rng.standard_normal(shape, dtype=np.float32))
-
-    gemm = tf.linalg.matmul(random(256, 2048), random(2048, 256))
-    conv = tf.nn.conv2d(
-        random(1, 64, 64, 32), random(3, 3, 32, 32), strides=1, padding='SAME'
+    shapes = ((256, 2048), (2048, 256), (1, 64, 64, 32), (3, 3, 32, 32))
+    left, right, image, filters = (
+        tf.constant(rng.standard_normal(shape, dtype=np.float32))
+        for shape in shapes
     )
+
+    gemm = tf.linalg.matmul(left, right)
+    conv = tf.nn.conv2d(image, filters, strides=1, padding='SAME')
 
     digest = hashlib.sha256(_cpu_identity().encode())
     digest.update(gemm.numpy().tobytes())
@@ -101,7 +108,24 @@ def find_profile(test_dir, record):
     return fingerprint, test_dir / 'consistency_outputs' / profiles[fingerprint]
 
 
+def _store(produced, stored, *args, **kwargs):
+    """Replace filecmp.cmp: store the output instead of comparing it.
+
+    :param produced: path to the output the test produced
+    :param stored: path to store it at
+    :param args: further arguments of filecmp.cmp, ignored
+    :param kwargs: further keyword arguments of filecmp.cmp, ignored
+    :return: True, so that the test passes
+    """
+    shutil.copyfile(produced, stored)
+    return True
+
+
 def pytest_addoption(parser):
+    """Add the --record-profile option to pytest.
+
+    :param parser: pytest's command line parser
+    """
     parser.addoption(
         '--record-profile',
         action='store_true',
@@ -111,7 +135,10 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope='session', autouse=True)
 def kernel_profile(pytestconfig):
-    """Point the tests at the reference outputs recorded for this CPU."""
+    """Point the tests at the reference outputs recorded for this CPU.
+
+    :param pytestconfig: pytest's configuration, holding --record-profile
+    """
     record = pytestconfig.getoption('record_profile')
     fingerprint, outputs_dir = find_profile(Path(__file__).parent, record)
 
@@ -129,13 +156,7 @@ def kernel_profile(pytestconfig):
 
     if record:
         outputs_dir.mkdir(parents=True, exist_ok=True)
-
-        # store each output instead of comparing it
-        def store(produced, stored, *args, **kwargs):
-            shutil.copyfile(produced, stored)
-            return True
-
-        filecmp.cmp = store
+        filecmp.cmp = _store
 
 
 def main():

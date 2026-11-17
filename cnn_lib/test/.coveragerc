@@ -1,2 +1,2 @@
 [run]
-omit = src/test/*
+omit = cnn_lib/test/*

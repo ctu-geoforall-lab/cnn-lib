@@ -58,7 +58,7 @@ jobs:
           set -o pipefail
           docker run --rm -v ${GITHUB_WORKSPACE}:/src:ro \
             --cpus=4 -m 20g "$IMAGE" \
-            bash -c "cd src; python3 cnn_lib/test/conftest.py" | tee /tmp/probe.txt
+            bash -c "cd src; python3 cnn_lib/test/kernel_profiles.py" | tee /tmp/probe.txt
           read -r FP STATE <<< "$(tail -1 /tmp/probe.txt)"
           case "$STATE" in
             known|unknown) ;;

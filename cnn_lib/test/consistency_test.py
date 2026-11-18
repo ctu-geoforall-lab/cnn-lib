@@ -1,8 +1,4 @@
-"""Compare training outputs with the reference outputs recorded on this CPU.
-
-The model summary is printed summary_line_length=76 wide, the width the
-reference outputs were recorded with, whatever the terminal's width.
-"""
+"""Compare training outputs with the reference outputs recorded on this CPU."""
 
 import os
 import sys

@@ -58,27 +58,9 @@ jobs:
             sudo rm -rf /tmp/training_data
             sudo cp -a /tmp/training_data.pristine /tmp/training_data
 
-            docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src --cpus=4 -m 20g "$IMAGE" bash -c "cd src; pip install .; pytest --cov-report=term-missing:skip-covered --cov-append --junitxml=/tmp/pytest-$t.xml --cov=cnn_lib --cov-config=cnn_lib/test/.coveragerc cnn_lib/test/consistency_test.py::TestCmd::$t" | tee /tmp/pytest-coverage.txt
+            docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src --cpus=4 -m 20g "$IMAGE" bash -c "cd src; pip install .; pytest --cov-report=term-missing:skip-covered --cov-append --cov=cnn_lib --cov-config=cnn_lib/test/.coveragerc cnn_lib/test/consistency_test.py::TestCmd::$t" | tee /tmp/pytest-coverage.txt
           done
-      - name: Merge the JUnit reports of the tests into one
-        run: |
-          python3 - <<'EOF'
-          import glob
-          import xml.etree.ElementTree as ET
-
-          files = sorted(glob.glob('/tmp/pytest-*.xml'))
-          tree = ET.parse(files[0])
-          suite = tree.getroot().find('testsuite')
-          for fn in files[1:]:
-              other = ET.parse(fn).getroot().find('testsuite')
-              for key in ('tests', 'errors', 'failures', 'skipped'):
-                  suite.set(key, str(int(suite.get(key)) + int(other.get(key))))
-              suite.set('time', str(float(suite.get('time')) + float(other.get('time'))))
-              suite.extend(other)
-          tree.write('/tmp/pytest.xml')
-          EOF
       - name: Pytest coverage comment
         uses: MishaKav/pytest-coverage-comment@main
         with:
           pytest-coverage-path: /tmp/pytest-coverage.txt
-          junitxml-path: /tmp/pytest.xml

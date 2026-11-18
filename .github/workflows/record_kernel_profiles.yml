@@ -93,7 +93,7 @@ jobs:
           docker run --rm -v /tmp:/tmp:rw -v ${GITHUB_WORKSPACE}:/src:rw \
             -e PYTHONPATH=/usr/local/lib/python3.6/dist-packages:/usr/local/lib/python3/dist-packages:/src \
             --cpus=4 -m 20g "$IMAGE" \
-            bash -c "cd src; pip install .; \
+            bash -c "cd src; \
               pytest --record-profile cnn_lib/test/consistency_test.py::TestCmd::${{ matrix.test }}"
 
       - name: Upload the recorded profile

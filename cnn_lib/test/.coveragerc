@@ -1,2 +1,0 @@
-[run]
-omit = cnn_lib/test/*

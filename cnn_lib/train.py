@@ -52,6 +52,7 @@ def run(
     frozen_layer_groups=None,
     skip_mismatch=True,
     verbose=1,
+    summary_line_length=None,
 ):
     if verbose > 0:
         utils.print_device_info()
@@ -67,7 +68,7 @@ def run(
         os.path.join(data_dir, 'label_colors.txt')
     )
 
-    # set TensorFlow seed
+    # set the seeds
     if seed is not None:
         if int(tf.__version__.split('.')[1]) < 4:
             tf.random.set_seed(seed)
@@ -87,6 +88,7 @@ def run(
         dropout_rate_hidden=dropout_rate_hidden,
         backbone=backbone,
         name=name,
+        summary_line_length=summary_line_length,
     )
 
     # val generator used for both the training and the detection
@@ -117,9 +119,8 @@ def run(
             else:
                 model.set_layers_trainable(False, frozen_layer_groups)
             model.compile(
-                optimizer=model.optimizer,
-                loss=model.loss,
-                metrics=_metrics)
+                optimizer=model.optimizer, loss=model.loss, metrics=_metrics
+            )
 
     train_generator = AugmentGenerator(
         data_dir,

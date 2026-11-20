@@ -1,3 +1,5 @@
+"""Compare training outputs with the reference outputs recorded on this CPU."""
+
 import os
 import sys
 import filecmp
@@ -8,12 +10,23 @@ from difflib import unified_diff
 import cnn_lib.train as train
 
 
-def report_file(identifier):
+def stored_fn(identifier, reference_dir):
+    """Path of the reference output valid for this machine.
+
+    :param identifier: identifier of the training setting
+    :param reference_dir: directory with this CPU's reference outputs
+    :return: path to the stored output file
+    """
+    return os.path.join(reference_dir, f'{identifier}.txt')
+
+
+def report_file(identifier, reference_dir):
     """Report the inconsistency of two files.
 
     To be called when output comparison assert fails.
 
     :param identifier: identifier of the training setting
+    :param reference_dir: directory with this CPU's reference outputs
     :return: string message reporting the content of the new output
     """
     sys.stdout.write(
@@ -22,9 +35,7 @@ def report_file(identifier):
     )
 
     with open(f'/tmp/{identifier}.txt') as left:
-        with open(
-            f'cnn_lib/test/consistency_outputs/{identifier}.txt'
-        ) as right:
+        with open(stored_fn(identifier, reference_dir)) as right:
             sys.stdout.writelines(
                 unified_diff(left.readlines(), right.readlines())
             )
@@ -33,18 +44,18 @@ def report_file(identifier):
 
 
 class TestCmd:
-    def test_001_main_architectures(self, capsys):
+    def test_001a_plain_architectures(self, capsys, reference_dir):
         """Test the consistency of a small cloud classification sample.
 
-        Test all architectures with and without droput.
+        Test U-Net and SegNet, with and without dropout.
 
-        :param capsys: a builtin pytest fixture that ispassed into any test to
-                       capture stdin/stdout
+        :param capsys: a builtin pytest fixture that ispassed into any
+                       test to capture stdin/stdout
+        :param reference_dir: directory with this CPU's reference outputs
         """
         training_data_dir = os.path.join(
             '/tmp', 'training_data', 'training_set_clouds_multiclass'
         )
-        # TODO: Add continue
 
         # tests for architectures without backbone models
         for architecture in ('U-Net', 'SegNet'):
@@ -69,6 +80,7 @@ class TestCmd:
                     seed=1,
                     name=identifier,
                     verbose=0,
+                    summary_line_length=76,
                 )
 
                 cap = capsys.readouterr()
@@ -78,10 +90,23 @@ class TestCmd:
 
                 assert filecmp.cmp(
                     f'/tmp/{identifier}.txt',
-                    f'cnn_lib/test/consistency_outputs/{identifier}.txt',
-                ), report_file(identifier)
+                    stored_fn(identifier, reference_dir),
+                ), report_file(identifier, reference_dir)
 
                 shutil.rmtree(output_dir)
+
+    def test_001b_deeplab_backbones(self, capsys, reference_dir):
+        """Test the consistency of a small cloud classification sample.
+
+        Test DeepLab over its ResNet backbones, with and without dropout.
+
+        :param capsys: a builtin pytest fixture that ispassed into any
+                       test to capture stdin/stdout
+        :param reference_dir: directory with this CPU's reference outputs
+        """
+        training_data_dir = os.path.join(
+            '/tmp', 'training_data', 'training_set_clouds_multiclass'
+        )
 
         # tests for architectures with backbone models
         architecture = 'DeepLab'
@@ -108,6 +133,7 @@ class TestCmd:
                     backbone=backbone,
                     name=identifier,
                     verbose=0,
+                    summary_line_length=76,
                 )
 
                 cap = capsys.readouterr()
@@ -117,10 +143,23 @@ class TestCmd:
 
                 assert filecmp.cmp(
                     f'/tmp/{identifier}.txt',
-                    f'cnn_lib/test/consistency_outputs/{identifier}.txt',
-                ), report_file(identifier)
+                    stored_fn(identifier, reference_dir),
+                ), report_file(identifier, reference_dir)
 
                 shutil.rmtree(output_dir)
+
+    def test_001c_fcn_backbone(self, capsys, reference_dir):
+        """Test the consistency of a small cloud classification sample.
+
+        Test FCN/VGG16, with and without dropout.
+
+        :param capsys: a builtin pytest fixture that ispassed into any
+                       test to capture stdin/stdout
+        :param reference_dir: directory with this CPU's reference outputs
+        """
+        training_data_dir = os.path.join(
+            '/tmp', 'training_data', 'training_set_clouds_multiclass'
+        )
 
         architecture = 'FCN'
         for backbone in ('VGG16',):
@@ -146,6 +185,7 @@ class TestCmd:
                     backbone=backbone,
                     name=identifier,
                     verbose=0,
+                    summary_line_length=76,
                 )
 
                 cap = capsys.readouterr()
@@ -155,18 +195,19 @@ class TestCmd:
 
                 assert filecmp.cmp(
                     f'/tmp/{identifier}.txt',
-                    f'cnn_lib/test/consistency_outputs/{identifier}.txt',
-                ), report_file(identifier)
+                    stored_fn(identifier, reference_dir),
+                ), report_file(identifier, reference_dir)
 
                 shutil.rmtree(output_dir)
 
-    def test_002_loss(self, capsys):
+    def test_002_loss(self, capsys, reference_dir):
         """Test the consistency of a small cloud classification sample.
 
         Test the consistency of loss functions.
 
         :param capsys: a builtin pytest fixture that ispassed into any test to
                        capture stdin/stdout
+        :param reference_dir: directory with this CPU's reference outputs
         """
         training_data_dir = os.path.join(
             '/tmp', 'training_data', 'training_set_clouds_multiclass'
@@ -194,6 +235,7 @@ class TestCmd:
                 seed=1,
                 name=identifier,
                 verbose=0,
+                summary_line_length=76,
             )
 
             cap = capsys.readouterr()
@@ -203,8 +245,8 @@ class TestCmd:
 
             assert filecmp.cmp(
                 f'/tmp/{identifier}.txt',
-                f'cnn_lib/test/consistency_outputs/{identifier}.txt',
-            ), report_file(identifier)
+                stored_fn(identifier, reference_dir),
+            ), report_file(identifier, reference_dir)
 
             shutil.rmtree(output_dir)
 
@@ -232,6 +274,7 @@ class TestCmd:
                 tversky_beta=beta,
                 name=identifier,
                 verbose=0,
+                summary_line_length=76,
             )
 
             cap = capsys.readouterr()
@@ -241,18 +284,19 @@ class TestCmd:
 
             assert filecmp.cmp(
                 f'/tmp/{identifier}.txt',
-                f'cnn_lib/test/consistency_outputs/{identifier}.txt',
-            ), report_file(identifier)
+                stored_fn(identifier, reference_dir),
+            ), report_file(identifier, reference_dir)
 
             shutil.rmtree(output_dir)
 
-    def test_003_augmentation(self, capsys):
+    def test_003_augmentation(self, capsys, reference_dir):
         """Test the consistency of a small cloud classification sample.
 
         Test all architectures with and without droput.
 
         :param capsys: a builtin pytest fixture that ispassed into any test to
                        capture stdin/stdout
+        :param reference_dir: directory with this CPU's reference outputs
         """
         training_data_dir = os.path.join(
             '/tmp', 'training_data', 'training_set_clouds_multiclass'
@@ -280,6 +324,7 @@ class TestCmd:
             force_dataset_generation=True,
             name=identifier,
             verbose=0,
+            summary_line_length=76,
         )
 
         cap = capsys.readouterr()
@@ -289,7 +334,7 @@ class TestCmd:
 
         assert filecmp.cmp(
             f'/tmp/{identifier}.txt',
-            f'cnn_lib/test/consistency_outputs/{identifier}.txt',
-        ), report_file(identifier)
+            stored_fn(identifier, reference_dir),
+        ), report_file(identifier, reference_dir)
 
         shutil.rmtree(output_dir)
